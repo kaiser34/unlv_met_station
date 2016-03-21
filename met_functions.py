@@ -44,8 +44,29 @@ def getjobs_yr(year, mille,work):
     return job_yr
     
 #------------------------------------------------------------------------------
+def graphdata(wdata):
+    print 'yo'
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+def getDataPrompt(wdata):
+    print 'yo'
+
+
+
+
+
+
+#------------------------------------------------------------------------------
 def getCase(x,date,param,model,wdata):
-    if x == 1:
+    
+    graphdata(wdata)
+    prompt=getDataPrompt()
+    if param[0] == 1 and param[1] == 0:
         print 'method 1 is chosen'
         return morningDNIfix(date,param,model,wdata)
     elif x == 2:
@@ -75,6 +96,23 @@ def getTempdata(wdata):
     return wdataTemp   
 
 #------------------------------------------------------------------------------
+def writedata(data,year):    
+    if type(data) != int: #checks to see if get_irrstatus returned an int holding a 0 value instead of a dataframe
+            if not data.empty:            
+                filename='fixed/'+str(year)+'.csv'
+#                print filename
+                if os.path.isfile(filename):
+                   print 'Appending existing dataframe: '+filename
+                   #Grab data from file
+                   newdata=pd.read_csv(filename)
+                   newdata=pd.concat([newdata,data], axis=1)
+                   newdata.to_csv(filename, index=False)
+                else:
+                   print'Creating new dataframe: '+filename
+                   data.to_csv(filename, index=False)
+                   #Create new data file from fixed data
+    return 0
+#------------------------------------------------------------------------------
 def getAirmass(wdata):
     airmassTime=[]
     for index in range (0,1439):
@@ -86,6 +124,7 @@ def getAirmass(wdata):
                 if zenith >=85:
                     airmassTime.append(index2)
                     break
+                
             break
     return airmassTime
 #------------------------------------------------------------------------------        
@@ -161,10 +200,10 @@ def getModel(date,param,wdata):
         dataZEN.append(wdata.loc[time,'Zenith Angle [degrees]'])
         
         
-    tempdata=pd.DataFrame(dict(TS=irrtime,ModelDNI=modelDNI,DataDNI=dataDNI,ModelGH=modelGH,DataGH=dataGH,ModelDif=modelDif,DataDIFF=dataDIFF))
+    tempdata=pd.DataFrame(dict(PST=irrtime,ModelDNI=modelDNI,DataDNI=dataDNI,ModelGH=modelGH,DataGH=dataGH,ModelDif=modelDif,DataDIFF=dataDIFF))
     #tempdata=pd.DataFrame(dict(TS=irrtime,DataDNI=dataDNI,DataGH=dataGH,DataDIFF=dataDIFF))
     tempdata.reset_index(drop=True)
-    tempdata=tempdata.set_index('TS')
+    tempdata=tempdata.set_index('PST')
     #plt.gca().set_color_cycle(['black', 'red','blue'])
     tempdata.plot()
 

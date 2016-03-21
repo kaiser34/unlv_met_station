@@ -52,7 +52,7 @@ for year in range(year_begin,year_end): #Loop for the number of years
         job_len=len(job.index)
         modelData=getModel(job_data,param,job)
         method=getMethod(job_date,param,modelData,job)        
-        fixedDat=getCase(method,job_date,param,modelData,job)
+        fixedData=getCase(method,job_date,param,modelData,job)
         writedata(fixeddata,year)
         #fixeddata=correctDNI(job_date,param,job)        
         #break
