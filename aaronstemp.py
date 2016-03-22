@@ -173,6 +173,27 @@ def getzenith(wdata,airmassTime):
     zTime=start
     return zTime
 
+def getdnistart(NIPSHADE,airmass_Time):
+    start=NIPSHADE.PST[NIPSHADE.PST=='14:00'].index.tolist()
+    for time in range(start,airmass_Time[1]):
+        if nipshade[time]==1:
+            nstart=[time-5,airmass_Time[1]]
+            return nstart
+        if time==airmass_Time[1]:
+            print 'No shading from Amonix found'
+            return 0
+
+
+def getghstart(GHSHADE,airmass_Time):
+    start=GHSHADE.PST[GHSHADE.PST=='14:00'].index.tolist()
+    for time in range(start,airmass_Time[1]):
+        if ghshade[time]==1:
+            nstart=[time-5,airmass_Time[1]]
+            return nstart
+        if time==airmass_Time[1]:
+            print 'No shading from Amonix or weather pole found'
+            return 0
+
 #------------------------------------------------------------------------------
 
 def eveningDNIfix(date,param,model,smodel,wdata):
@@ -183,7 +204,7 @@ def eveningDNIfix(date,param,model,smodel,wdata):
     switch1=0
     switch2=0
     airmass_time=getAirmass(wdata)
-    ztime=getzenith(TS)
+    ztime=getdnistart(NIPSHADE,airmass_time)
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
         DNImdif.append(modelDNI[x]-dataDNI[x])
@@ -270,7 +291,7 @@ def eveningGHfix(date,param,model,smodel,wdata):
     switch1=0
     switch2=0
     airmass_time=getAirmass(wdata)
-    ztime=getzenith(TS)
+    ztime=getdnistart(NIPSHADE,airmass_time)
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
         GHmdif.append(modelGH[x]-dataGH[x])
@@ -344,3 +365,13 @@ def eveningGHfix(date,param,model,smodel,wdata):
         multiplier2=dataGH[ztime[1]]/GHfix[ztime[1]]
         for time in range(dipbegin,ztime[1]):
             GHfix[time]=(((multiplier2-1)/(ztime[1]-dipbegin)*(time-dipbegin)+1)*GHfix[time])
+
+
+
+#------------------------------------------------------------------------------
+
+def calcdiff(wdata):
+    airmass_time=getAirmass(wdata)
+    for time in range (airmass_time[0],airmass_time[1]):
+        if (wdata.loc[time,'DIFF_Changed'])==1:
+            wdata.loc[time,'Diffuse Horiz (calc) [W/m^2]']=(wdata.loc[time,'Global Horiz [W/m^2]']-wdata.loc[time,'Direct Normal [W/m^2]']*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi))
