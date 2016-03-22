@@ -51,13 +51,8 @@ for year in range(year_begin,year_end): #Loop for the number of years
         job=job.reset_index(drop=True)
         job_len=len(job.index)
         modelData=getModel(job_data,param,job)
-        method=getMethod(job_date,param,modelData,job)        
-        fixedData=getCase(method,job_date,param,modelData,job)
+        fixedData=getFixdata(job_date,param,modelData,job)
         writedata(fixeddata,year)
-        #fixeddata=correctDNI(job_date,param,job)        
-        #break
-        #fixeddata=correctGH(job_date,param,job)
-        #writedata(fixeddata,year)
         break
     break
 print 'The program has completed!'    

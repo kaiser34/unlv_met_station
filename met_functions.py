@@ -44,48 +44,208 @@ def getjobs_yr(year, mille,work):
     return job_yr
     
 #------------------------------------------------------------------------------
-def graphdata(wdata):
-    print 'yo'
-
-
-
-
-
-
-#------------------------------------------------------------------------------
-def getDataPrompt(wdata):
-    print 'yo'
-
-
-
-
-
-
-#------------------------------------------------------------------------------
-def getCase(x,date,param,model,wdata):
+def graphdata(fixedData,wdata,case):
+    airmass=getAirmass(wdata)
+    dataGH=dataDNI=PST=[]
     
-    graphdata(wdata)
-    prompt=getDataPrompt()
-    if param[0] == 1 and param[1] == 0:
-        print 'method 1 is chosen'
-        return morningDNIfix(date,param,model,wdata)
-    elif x == 2:
-        print 'method 2 is chosen'
-        return morningGHfix(date,param,model,wdata)
-    elif x == 3:
-        print 'method 3 is chosen'
-        return eveningDNIfix(date,param,model,wdata)
-    elif x == 4:
-        print 'method 4 is chosen'
-        return eveningGHfix(date,param,model,wdata)
-    elif x == 5:
-        print 'method 5 is chosen'   
-        return manualfix(data,param,model,wdata)
-    else :
-        print 'No method was chosen'
-        return 0
+    for i in range (airmass[0],airmass[1]):
+        dataDNI.append(wdata.loc[i,'Direct Normal [W/m^2]'])
+        dataGH.append(wdata.loc[i,'Global Horiz [W/m^2]'])
+        PST.append(wdata.loc[i,'PST'])
+    if len(fixedData)==2:
+        tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH, FixedDNI=fixedData[0], FixedGH=fixedData[1]))
+    elif case == 'GH':
+        tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH,FixedGH=fixedData))
+    elif case =='DNI':
+        tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH, FixedDNI=fixedData))
 
+    tempdata.reset_index(drop=True)
+    tempdata=tempdata.set_index('Time')
+    tempdata.plot()
+    pass
 
+#------------------------------------------------------------------------------
+def prompt(message):
+    return str(raw_input(message+'')).lower().strip()
+
+#------------------------------------------------------------------------------
+def buildWdata(fixedDNI,fixedGH,wdata):
+    airmass=getAirmass(wdata)    
+    x=0    
+    if len(fixedDNI) != 0:
+        for i in range (airmass[0],airmass[1]):        
+            if wdata.loc[i,'Direct Normal [W/m^2]'] != fixedDNI[x]:
+                wdata.loc[i,'Direct Normal [W/m^2]'] = fixedDNI[x]
+                wdata.loc[i,'DNI_Changed']=1
+                wdata.loc[i,'DIFF_Changed']=1
+            x=x+1
+            
+    x=0
+    if len(fixedGH) != 0:
+        for i in range (airmass[0],airmass[1]):        
+            if wdata.loc[i,'Global Horiz [W/m^2]'] != fixedGH[x]:
+                 wdata.loc[i,'Global Horiz [W/m^2]'] = fixedGH[x]
+                 wdata.loc[i,'GH_Changed']=1
+                 wdata.loc[i,'DIFF_Changed']=1
+            x=x+1
+    
+    
+    
+    return wdata
+    
+#------------------------------------------------------------------------------
+def manualDatafix(fixedData,wdata,case):
+    dataDNI=dataGH=PST=[]    
+    airmass=getAirmass(wdata)    
+    for i in range (airmass[0],airmass[1]):
+        dataDNI.append(wdata.loc[i,'Direct Normal [W/m^2]'])
+        dataGH.append(wdata.loc[i,'Global Horiz [W/m^2]'])
+        PST.append(wdata.loc[i,'PST'])
+   
+    tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH))
+
+    
+    
+    
+    
+    
+    
+#------------------------------------------------------------------------------
+def getFixdata(date,param,model,wdata):
+    fixedData=[]
+    fixedGH=[]
+    fixedDNI=[]
+    response=0
+    
+    if param[2]==1:
+        case='special'
+        while(response == 1):
+            sensor=prompt('Which Irradiance sensor is being worked on manually? 1=none, 2=GH, 3=DNI, & 4=both')
+            if sensor == 1:                
+                return 0
+            if sensor == 2:
+                fixedGH=manualDatafix(wdata,'GH')
+                graphdata(fixedGH,wdata,'GH')
+            if sensor == 3:
+                fixedDNI=manualDatafix(wdata,'DNI')
+                graphdata(fixedDNI,wdata,'DNI')
+            if sensor == 4:
+                fixedGH=manualDatafix(wdata,'GH')
+                fixedDNI=manualDatafix(wdata,'DNI')
+                graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
+            response=prompt('Are the Changes Acceptable? 1=yes , 0=no')
+    else:
+        if param[0] == 0 and param[1] == 0:
+            return 0
+    
+        if param[0] == 0 and param[1] == 1:
+            fixedData.append(eveningDNIfix(date,param,model,wdata))
+            fixedData.append(eveningGHfix(date,param,model,wdata))
+            case='evening'
+            
+        if param[0] == 1 and param[1] == 0:
+            fixedData.append(morningDNIfix(date,param,model,wdata))
+            fixedData.append(morningGHfix(date,param,model,wdata))
+            case='morning'         
+    
+        if param[0] == 1 and param[1] == 1:
+            fixedData.append(morningDNIfix(date,param,model,wdata))
+            fixedData.append(morningGHfix(date,param,model,wdata))
+            fixedData.append(eveningDNIfix(date,param,model,wdata))
+            fixedData.append(eveningGHfix(date,param,model,wdata))
+            case='both'
+    
+     
+        graphdata(fixedData,wdata,case)
+        response=prompt('Are the Changes Acceptable? 1=yes for both, 2=only DNI, 3=only GH, 4=manual fix')
+        
+        if response == 1:
+            if case == 'evening':
+                fixedDNI=fixedData[0]
+                fixedGH=fixedData[1]
+
+            if case == 'morning':
+                fixedDNI=fixedData[0]
+                fixedGH=fixedData[1]
+            
+            if case == 'both':
+                fixedDNI=fixedData[0,2]
+                fixedGH=fixedData[1,3]
+            
+            
+        if response == 2:
+            if case == 'evening':
+                fixedDNI=fixedData[0]
+                response=prompt('Does GH need fixing? 1=yes, 0=no')
+                while(response == 1):
+                    fixedGH=manualDatafix(wdata,'GH')
+                    graphdata(fixedGH,wdata,case)
+                    response=prompt('Does GH need fixing? 1=yes, 0=no')
+
+                    
+            if case == 'morning':
+                fixedDNI=fixedData[0]
+                response=prompt('Does GH need fixing? 1=yes, 0=no')
+                while(response == 1):
+                        fixedGH=manualDatafix(wdata,'GH')
+                        graphdata(fixedGH,wdata,case)
+                        response=prompt('Does GH need fixing? 1=yes, 0=no')
+
+                        
+            if case == 'both':
+               fixedDNI=fixedData[0,2]
+               response=prompt('Does GH need fixing? 1=yes')
+               while(response == 1):
+                       fixedGH[0]=manualDatafix(wdata,'GH')
+                       fixedGH[1]=manualDatafix(wdata,'GH')
+                       graphdata(fixedGH,wdata,case)
+                       response=prompt('Does GH need fixing? 1=yes, 0=no')
+
+                       
+                       
+        if response == 3:
+            if case == 'evening':
+                fixedGH=fixedData[0]
+                response=prompt('Does DNI need fixing? 1=yes, 0=no')
+                while(response == 1):
+                        fixedDNI=manualDatafix(wdata,'DNI')
+                        graphdata(fixedDNI,wdata,case)
+                        response=prompt('Does GH need fixing? 1=yes, 0=no')
+
+                        
+            if case == 'morning':
+                fixedGH=fixedData[0]
+                response=prompt('Does DNI need fixing? 1=yes, 0=no')
+                while(response == 1):
+                    fixedDNI=manualDatafix(wdata,'DNI')
+                    graphdata(fixedDNI,wdata,case)
+                    response=prompt('Does DNI need fixing? 1=yes, 0=no')
+
+                
+            if case == 'both':
+               fixedGH=fixedData[0,2]
+               response=prompt('Does DNI need fixing? 1=yes , 0=no')
+               while(response == 1):
+                   fixedDNI[0]=manualDatafix(wdata,'DNI')
+                   fixedDNI[1]=manualDatafix(wdata,'DNI')
+                   graphdata(fixedDNI,wdata,case)
+                   response=prompt('Does DNI need fixing? 1=yes , 0=no')
+                   
+                   
+        if response == 4:
+            response = 1
+            while(response == 1):
+                fixedGH=manualDatafix(wdata,'GH')
+                fixedDNI=manualDatafix(wdata,'DNI')
+                graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
+                response=prompt('Are the Changes Acceptable? 1=yes, 0=no')
+
+    temp=getTempdata(wdata)    
+    newData=buildWdata(fixedDNI,fixedGH,temp)
+    newData= calcDiff(newData)
+    return newData
+    
+            
 #------------------------------------------------------------------------------
 def getTempdata(wdata):
     emptylist=[]
