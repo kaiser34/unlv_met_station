@@ -94,6 +94,7 @@ def buildWdata(fixedDNI,fixedGH,wdata):
     return wdata
     
 #------------------------------------------------------------------------------
+position=[] #global variable position
 def manualDatafix(fixedData,wdata,case):
     dataDNI=dataGH=PST=[]    
     airmass=getAirmass(wdata)    
@@ -103,7 +104,15 @@ def manualDatafix(fixedData,wdata,case):
         PST.append(wdata.loc[i,'PST'])
    
     tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(np.random.rand(10))
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
+def onclick(event):
+    if fig.canvas.manager.toolbar._active is None:
+        print 'xdata=%f, ydata=%f'%(event.xdata, event.ydata)
+        position.append([event.xdata,event.ydata])
     
     
     
