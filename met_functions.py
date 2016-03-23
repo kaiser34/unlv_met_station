@@ -117,12 +117,12 @@ def manualDatafix(fixedData,wdata,case):
     fig = plt.figure()
     tempdata = fig.add_subplot(111)
     tempdata.plot()
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
 def onclick(event):
     if fig.canvas.manager.toolbar._active is None:
         print 'xdata=%f, ydata=%f'%(event.xdata, event.ydata)
         position.append([event.xdata,event.ydata])
-cid = fig.canvas.mpl_connect('button_press_event', onclick)
     
     
     
@@ -171,45 +171,63 @@ def getAirmass(wdata):
     return airmassTime   
 
 #------------------------------------------------------------------------------  
-def getdnistart(datefix,airmass_Time):
-    datefix=parser.parse(datefix)
-    dayofyear=float(date.strftime('%j'))
+def getdnistart(datefix,airmass, wdata):
     
-    start=NIPSHADE.PST[NIPSHADE.PST=='14:00'].index.tolist()
-    for time in range(start,airmass_Time[1]):
-        if nipshade[time]==1:
-            nstart=[time-5,airmass_Time[1]]
+    datefix=parser.parse(datefix)
+    dayofyear=float(datefix.strftime('%j'))
+    shade=pd.read_csv("shade.csv")
+    shade=shade.loc[shade['Date']==dayofyear]
+    shade=shade.reset_index(drop=True)
+    for time in range (airmass[0],airmass[1]):
+
+    shade=shade.loc[airmass[0],airmass[1]]
+    start=shade.Time[shade.Time=='14:00'].index.tolist()
+
+    for time in range(start,airmass[1]):
+        if shade.loc[time,'DNI Shade'] == 1:
+            nstart=[time-5,airmass[1]]
             return nstart
-        if time==airmass_Time[1]:
+        if time==airmass[1]:
             print 'No shading from Amonix found'
             return 0
 
 
-def getghstart(datefix,airmass_Time):
-    datefix=parser.parse(datefix)
-    dayofyear=float(date.strftime('%j'))
+def getghstart(datefix,airmass, wdata):
     
-    start=GHSHADE.PST[GHSHADE.PST=='14:00'].index.tolist()
-    for time in range(start,airmass_Time[1]):
-        if ghshade[time]==1:
-            nstart=[time-5,airmass_Time[1]]
+    datefix=parser.parse(datefix)
+    dayofyear=float(datefix.strftime('%j'))
+    shade=pd.read_csv("shade.csv")
+    shade=shade.loc[shade['Date']==dayofyear]
+    shade=shade.reset_index(drop=True)
+    shade=shade.loc[airmass[0],airmass[1]]
+    start=shade.Time[shade.Time=='14:00'].index.tolist()
+    
+    for time in range(start,airmass[1]):
+        if shade.loc[time,'GH Shade'] == 1:
+            nstart=[time-5,airmass[1]]
             return nstart
-        if time==airmass_Time[1]:
+        if time==airmass[1]:
             print 'No shading from Amonix or weather pole found'
             return 0
 
 #------------------------------------------------------------------------------  
       
 def getModel(datefix,param,wdata):
-    modelDNI=modelGH=modelDif=[[],[],[]] 
-    dataDNI=dataGH=dataDIFF=dataZEN=[[],[],[]] 
+    modelDNI=[]
+    modelGH=[]
+    modelDif=[]
+    dataDNI=[]
+    dataGH=[]
+    dataDIFF=[]
+    dataZEN=[]
     irrtime=[] 
       
     
     datefix=parser.parse(datefix)
     year=datefix.year
-    dayofyear=float(date.strftime('%j'))
-    datefix=datefix.toordinal(datefix)
+    dayofyear=float(datefix.strftime('%j'))
+    print 'date type is: ' +str( type(dayofyear)) + 'which is: ' + str(dayofyear)
+    #datefix=datefix.toordinal()
     
     if calendar.isleap(year) == True:
         year_days=366
@@ -221,6 +239,7 @@ def getModel(datefix,param,wdata):
         DNI_max=985
     else:
         DNI_max=measureDNI_max
+        print str(DNI_max)
         
     airmass_time=getAirmass(wdata)
 #    print airmass_time
@@ -235,6 +254,9 @@ def getModel(datefix,param,wdata):
     elif dayofyear > 80 and dayofyear <= 172:        
         for time in range(airmass_time[0],airmass_time[1]):        
             modelDNI.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(-0.00047388*pow(wdata.loc[time,'Airmass'],3)+0.0126193*pow(wdata.loc[time,'Airmass'],2)-0.15237986*wdata.loc[time,'Airmass']+1.1666472)+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(-0.00093561*pow(wdata.loc[time,'Airmass'],3)+0.01862888*pow(wdata.loc[time,'Airmass'],2)-0.17252031*wdata.loc[time,'Airmass']+1.14785839))*DNI_max)        
+            print str(wdata.loc[time,'Airmass'])   
+            print str(modelDNI[0])
+            print 'date type for modelDNI[x] is: ' +str( type(modelDNI[x])) + 'which is: ' + str(modelDNI[x])            
             modelDif.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(0.000667*pow(modelDNI[x],1.688571))+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(0.00019*pow(modelDNI[x],1.908004))))
             modelGH.append(modelDNI[x]*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi)+modelDif[x])         
             x=x+1
@@ -280,14 +302,17 @@ def getModel(datefix,param,wdata):
     return tempdata
 #------------------------------------------------------------------------------
 
-def getSModel(date,param,wdata):
-    smodelDNI=smodelGH=smodelDif=[[],[],[]] 
+def getSModel(datefix,param,wdata):
+    smodelDNI=[]
+    smodelGH=[]
+    smodelDif=[]
     irrtime=[] 
       
-    date=parser.parse(date)
-    year=date.year
-    dayofyear=float(date.strftime('%j'))
-    date=date.toordinal(date)
+    datefix=parser.parse(datefix)
+    year=datefix.year
+    dayofyear=float(datefix.strftime('%j'))
+    datefix=datefix.toordinal()
+    
     
     if calendar.isleap(year) == True:
         year_days=366
@@ -316,14 +341,14 @@ def getSModel(date,param,wdata):
         for time in range(airmass_time[0],airmass_time[1]): 
             smodelDNI.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(1.0622*pow(math.e,-0.092*wdata.loc[time,'Airmass']))+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(1.0487*pow(math.e,-0.068*wdata.loc[time,'Airmass'])))*DNI_max)        
             smodelGH.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*1.63605*math.pow(wdata.loc[time,'Airmass'],-1.35768)+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*2.4927*math.pow(wdata.loc[time,'Airmass'],-1.26142))*GH_max)
-            smodelDif.append(smodelGH(x)-smodelDNI(x)*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
+            smodelDif.append(smodelGH[x]-smodelDNI[x]*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
             x=x+1
     
     elif dayofyear > 80 and dayofyear <= 172:        
         for time in range(airmass_time[0],airmass_time[1]):        
             smodelDNI.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(1.0622*pow(math.e,-0.092*wdata.loc[time,'Airmass']))+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(1.0303*pow(math.e,-0.099*wdata.loc[time,'Airmass'])))*DNI_max)        
             smodelGH.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*1.63605*math.pow(wdata.loc[time,'Airmass'],-1.35768)+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*1.25632*math.pow(wdata.loc[time,'Airmass'],-1.31889))*GH_max)
-            smodelDif.append(smodelGH(x)-smodelDNI(x)*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
+            smodelDif.append(smodelGH[x]-smodelDNI[x]*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
             x=x+1
 
 
@@ -331,7 +356,7 @@ def getSModel(date,param,wdata):
         for time in range(airmass_time[0],airmass_time[1]):
             smodelDNI.append((math.pow(math.cos((dayofyear-172)/year_days*math.pi*2),2)*(1.0303*pow(math.e,-0.099*wdata.loc[time,'Airmass']))+math.pow(math.sin((dayofyear-172)/year_days*math.pi*2),2)*(1.0515*pow(math.e,-0.091*wdata.loc[time,'Airmass'])))*DNI_max)        
             smodelGH.append((math.pow(math.cos((dayofyear-172)/year_days*math.pi*2),2)*1.25632*math.pow(wdata.loc[time,'Airmass'],-1.31889)+math.pow(math.sin((dayofyear-172)/year_days*math.pi*2),2)*1.56904*math.pow(wdata.loc[time,'Airmass'],-1.33958))*GH_max)
-            smodelDif.append(smodelGH(x)-smodelDNI(x)*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
+            smodelDif.append(smodelGH[x]-smodelDNI[x]*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
             x=x+1
            
            
@@ -339,7 +364,7 @@ def getSModel(date,param,wdata):
         for time in range(airmass_time[0],airmass_time[1]):
             smodelDNI.append((math.pow(math.cos((dayofyear-264)/year_days*math.pi*2),2)*(1.0515*pow(math.e,-0.091*wdata.loc[time,'Airmass']))+math.pow(math.sin((dayofyear-264)/year_days*math.pi*2),2)*(1.0487*pow(math.e,-0.068*wdata.loc[time,'Airmass'])))*DNI_max)        
             smodelGH.append((math.pow(math.cos((dayofyear-264)/year_days*math.pi*2),2)*1.56904*math.pow(wdata.loc[time,'Airmass'],-1.33958)+math.pow(math.sin((dayofyear-264)/year_days*math.pi*2),2)*2.4927*math.pow(wdata.loc[time,'Airmass'],-1.26142))*GH_max)
-            smodelDif.append(smodelGH(x)-smodelDNI(x)*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
+            smodelDif.append(smodelGH[x]-smodelDNI[x]*math.cos(wdata.loc[time,'Zenith Angle [degrees]']/180*math.pi))
             x=x+1
 
 
@@ -457,7 +482,7 @@ def eveningDNIfix(date,param,wdata):
     airmass_time=getAirmass(wdata)
     smodel=getSModel(date,param, wdata)
     model=getModel(date,param,wdata)
-    ztime=getdnistart(date,airmass_time)
+    ztime=getdnistart(date,airmass_time,wdata)
     
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
@@ -545,7 +570,7 @@ def eveningGHfix(date,param,wdata):
     airmass_time=getAirmass(wdata)
     smodel=getSModel(date,param, wdata)
     model=getModel(date,param,wdata)
-    ztime=getghstart(date,airmass_time)
+    ztime=getghstart(date,airmass_time,wdata)
     
     
     x=0
@@ -624,79 +649,6 @@ def eveningGHfix(date,param,wdata):
     
     return GHfix
 #------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#------------------------------------------------------------------------------
 def getFixdata(datefix,param,model,wdata):
     fixedData=[]
     fixedGH=[]
@@ -725,20 +677,20 @@ def getFixdata(datefix,param,model,wdata):
             return 0
     
         if param[0] == 0 and param[1] == 1:
-            fixedData.append(eveningDNIfix(datefix,param,model,wdata))
-            fixedData.append(eveningGHfix(datefix,param,model,wdata))
+            fixedData.append(eveningDNIfix(datefix,param,wdata))
+            fixedData.append(eveningGHfix(datefix,param,wdata))
             case='evening'
             
         if param[0] == 1 and param[1] == 0:
-            fixedData.append(morningDNIfix(datefix,param,model,wdata))
-            fixedData.append(morningGHfix(datefix,param,model,wdata))
+            fixedData.append(morningDNIfix(datefix,param,wdata))
+            fixedData.append(morningGHfix(datefix,param,wdata))
             case='morning'         
     
         if param[0] == 1 and param[1] == 1:
-            fixedData.append(morningDNIfix(datefix,param,model,wdata))
-            fixedData.append(morningGHfix(datefix,param,model,wdata))
-            fixedData.append(eveningDNIfix(datefix,param,model,wdata))
-            fixedData.append(eveningGHfix(datefix,param,model,wdata))
+            fixedData.append(morningDNIfix(datefix,param,wdata))
+            fixedData.append(morningGHfix(datefix,param,wdata))
+            fixedData.append(eveningDNIfix(datefix,param,wdata))
+            fixedData.append(eveningGHfix(datefix,param,wdata))
             case='both'
     
      
@@ -828,10 +780,9 @@ def getFixdata(datefix,param,model,wdata):
 
     temp=getTempdata(wdata)    
     newData=buildWdata(fixedDNI,fixedGH,temp)
-    newData= calcDiff(newData)
+    newData= calcdiff(newData)
     return newData
-    
-            
+          
 #------------------------------------------------------------------------------
     
 

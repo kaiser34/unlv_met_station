@@ -45,13 +45,13 @@ for year in range(year_begin,year_end): #Loop for the number of years
         print job_date        
         param.append(jobs_yr.loc[days,'morning'])#Stores whether the following data requires a morning fix into a paramater array
         param.append(jobs_yr.loc[days,'evening'])#Stores whether the following data requires a evening fix into a paramater array
-#        param.append(jobs_yr.loc[days,'special'])#Stores whether the following data requires a special fix into a paramater array 
-#        print str(param[0])+str(param[1]+str(param[2]))
+        param.append(jobs_yr.loc[days,'special'])#Stores whether the following data requires a special fix into a paramater array 
+        print str(param[0])+" "+str(param[1])+" "+str(param[2])
         job=wdata.loc[wdata['DATE (MM/DD/YYYY)']==job_date] #Retrieves the data for the job-day from the data for the year
         job=job.reset_index(drop=True)
         job_len=len(job.index)
-        modelData=getModel(job_data,param,job)
-        modelSData=getSModel(job_data,param,job)
+        modelData=getModel(job_date,param,job)
+        modelSData=getSModel(job_date,param,job)
         fixedData=getFixdata(job_date,param,modelData,job)
         writedata(fixeddata,year)
         break
