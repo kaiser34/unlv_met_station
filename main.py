@@ -51,6 +51,7 @@ for year in range(year_begin,year_end): #Loop for the number of years
         job=job.reset_index(drop=True)
         job_len=len(job.index)
         modelData=getModel(job_data,param,job)
+        modelSData=getSModel(job_data,param,job)
         fixedData=getFixdata(job_date,param,modelData,job)
         writedata(fixeddata,year)
         break
