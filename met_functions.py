@@ -46,7 +46,9 @@ def getjobs_yr(year, mille,work):
 #------------------------------------------------------------------------------
 def graphdata(fixedData,wdata,case):
     airmass=getAirmass(wdata)
-    dataGH=dataDNI=PST=[[],[],[]] 
+    dataGH=[]
+    dataDNI=[]
+    PST=[] 
     
     for i in range (airmass[0],airmass[1]):
         dataDNI.append(wdata.loc[i,'Direct Normal [W/m^2]'])
@@ -172,43 +174,68 @@ def getAirmass(wdata):
 
 #------------------------------------------------------------------------------  
 def getdnistart(datefix,airmass, wdata):
-    
+    nshadetime=[]
+    nshade=[]
+    datefix=parser.parse(datefix)
+    dayofyear=float(datefix.strftime('%j'))
+    shade=pd.read_csv("shade.csv")
+    shade=shade.loc[shade['Date']==dayofyear]
+    shade=shade.reset_index(drop=True)
+    x=0
+    for time in range (airmass[0],airmass[1]):
+        nshadetime.append(shade.loc[time,'Time'])
+        nshade.append(shade.loc[time,'DNI Shade'])
+        if nshadetime[x]=='14:00':
+            start=x
+        x=x+1
+
+    for time in range(start,(airmass[1]-airmass[0])):
+        if nshade[time] == 1:
+            nstart=[time-5,(airmass[1]-airmass[0]-1)]
+            return nstart
+        if time==(airmass[1]-airmass[0]-1):
+            print 'No shading from Amonix found'
+            nstart=[0,0]
+            return nstart
+
+def getdnishade(datefix,airmass, wdata):
+    nshade=[]
     datefix=parser.parse(datefix)
     dayofyear=float(datefix.strftime('%j'))
     shade=pd.read_csv("shade.csv")
     shade=shade.loc[shade['Date']==dayofyear]
     shade=shade.reset_index(drop=True)
     for time in range (airmass[0],airmass[1]):
-
-    shade=shade.loc[airmass[0],airmass[1]]
-    start=shade.Time[shade.Time=='14:00'].index.tolist()
-
-    for time in range(start,airmass[1]):
-        if shade.loc[time,'DNI Shade'] == 1:
-            nstart=[time-5,airmass[1]]
-            return nstart
-        if time==airmass[1]:
-            print 'No shading from Amonix found'
-            return 0
+        nshade.append(shade.loc[time,'DNI Shade'])
+        
+    return nshade
+    
 
 
 def getghstart(datefix,airmass, wdata):
-    
+    nshadetime=[]
+    nshade=[]
     datefix=parser.parse(datefix)
     dayofyear=float(datefix.strftime('%j'))
     shade=pd.read_csv("shade.csv")
     shade=shade.loc[shade['Date']==dayofyear]
     shade=shade.reset_index(drop=True)
-    shade=shade.loc[airmass[0],airmass[1]]
-    start=shade.Time[shade.Time=='14:00'].index.tolist()
-    
-    for time in range(start,airmass[1]):
-        if shade.loc[time,'GH Shade'] == 1:
-            nstart=[time-5,airmass[1]]
+    x=0
+    for time in range (airmass[0],airmass[1]):
+        nshadetime.append(shade.loc[time,'Time'])
+        nshade.append(shade.loc[time,'GH shade'])
+        if nshadetime[x]=='14:00':
+            start=x
+        x=x+1
+
+    for time in range(start,(airmass[1]-airmass[0])):
+        if nshade[time] == 1:
+            nstart=[time-5,(airmass[1]-airmass[0]-1)]
             return nstart
-        if time==airmass[1]:
+        if time==(airmass[1]-airmass[0]-1):
             print 'No shading from Amonix or weather pole found'
-            return 0
+            nstart=[0,0]
+            return nstart
 
 #------------------------------------------------------------------------------  
       
@@ -226,7 +253,7 @@ def getModel(datefix,param,wdata):
     datefix=parser.parse(datefix)
     year=datefix.year
     dayofyear=float(datefix.strftime('%j'))
-    print 'date type is: ' +str( type(dayofyear)) + 'which is: ' + str(dayofyear)
+#    print 'date type is: ' +str( type(dayofyear)) + 'which is: ' + str(dayofyear)
     #datefix=datefix.toordinal()
     
     if calendar.isleap(year) == True:
@@ -239,7 +266,8 @@ def getModel(datefix,param,wdata):
         DNI_max=985
     else:
         DNI_max=measureDNI_max
-        print str(DNI_max)
+        
+#    print str(DNI_max)
         
     airmass_time=getAirmass(wdata)
 #    print airmass_time
@@ -254,9 +282,9 @@ def getModel(datefix,param,wdata):
     elif dayofyear > 80 and dayofyear <= 172:        
         for time in range(airmass_time[0],airmass_time[1]):        
             modelDNI.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(-0.00047388*pow(wdata.loc[time,'Airmass'],3)+0.0126193*pow(wdata.loc[time,'Airmass'],2)-0.15237986*wdata.loc[time,'Airmass']+1.1666472)+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(-0.00093561*pow(wdata.loc[time,'Airmass'],3)+0.01862888*pow(wdata.loc[time,'Airmass'],2)-0.17252031*wdata.loc[time,'Airmass']+1.14785839))*DNI_max)        
-            print str(wdata.loc[time,'Airmass'])   
-            print str(modelDNI[0])
-            print 'date type for modelDNI[x] is: ' +str( type(modelDNI[x])) + 'which is: ' + str(modelDNI[x])            
+#            print str(wdata.loc[time,'Airmass'])   
+#            print str(modelDNI[0])
+#            print 'date type for modelDNI[x] is: ' +str( type(modelDNI[x])) + 'which is: ' + str(modelDNI[x])            
             modelDif.append((math.pow(math.cos((dayofyear-80)/year_days*math.pi*2),2)*(0.000667*pow(modelDNI[x],1.688571))+math.pow(math.sin((dayofyear-80)/year_days*math.pi*2),2)*(0.00019*pow(modelDNI[x],1.908004))))
             modelGH.append(modelDNI[x]*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi)+modelDif[x])         
             x=x+1
@@ -272,7 +300,7 @@ def getModel(datefix,param,wdata):
            
     elif dayofyear > 264 and dayofyear < 355:        
         for time in range(airmass_time[0],airmass_time[1]):
-           modelDNI.append((math.pow(math.cos((dayofyear-264)/year_days*math.pi*2),2)*(-0.00063359*pow(wdata.loc[time,'Airmass'],3)+0.01470007*pow(wdata.loc[time,'Airmass'],2)-0.15945541*wdata.loc[time,'Airmass']+1.7200587)+math.pow(math.sin((dayofyear-264)/year_days*math.pi*2),2)*(-0.00050005*pow(wdata.loc[time,'Airmass'],3)+0.01188507*pow(wdata.loc[time,'Airmass'],2)-0.1409544*wdata.loc[time,'Airmass']+1.22407448))*DNI_max)        
+           modelDNI.append((math.pow(math.cos((dayofyear-264)/year_days*math.pi*2),2)*(-0.00063359*math.pow(wdata.loc[time,'Airmass'],3)+0.01470007*math.pow(wdata.loc[time,'Airmass'],2)-0.15945541*wdata.loc[time,'Airmass']+1.17200587)+math.pow(math.sin((dayofyear-264)/year_days*math.pi*2),2)*(-0.00050005*math.pow(wdata.loc[time,'Airmass'],3)+0.01188507*math.pow(wdata.loc[time,'Airmass'],2)-0.1409544*wdata.loc[time,'Airmass']+1.22407448))*DNI_max)        
            modelDif.append((math.pow(math.cos((dayofyear-264)/year_days*math.pi*2),2)*(0.000041*pow(modelDNI[x],2.106398))+math.pow(math.sin((dayofyear-264)/year_days*math.pi*2),2)*(0.000212*pow(modelDNI[x],1.840543))))    
            modelGH.append(modelDNI[x]*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi)+modelDif[x])         
            x=x+1
@@ -296,7 +324,7 @@ def getModel(datefix,param,wdata):
         
     tempdata=pd.DataFrame(dict(PST=irrtime,ModelDNI=modelDNI,DataDNI=dataDNI,ModelGH=modelGH,DataGH=dataGH,ModelDif=modelDif,DataDIFF=dataDIFF,DataZEN=dataZEN))
     tempdata.reset_index(drop=True)
-    tempdata=tempdata.set_index('PST')
+#    tempdata=tempdata.set_index('PST')
 #    plt.gca().set_color_cycle(['black', 'red','blue'])
 #    tempdata.plot()
     return tempdata
@@ -373,7 +401,7 @@ def getSModel(datefix,param,wdata):
         
     tempdata=pd.DataFrame(dict(PST=irrtime,SModelDNI=smodelDNI,SModelGH=smodelGH,SModelDif=smodelDif))
     tempdata.reset_index(drop=True)
-    tempdata=tempdata.set_index('PST')
+#    tempdata=tempdata.set_index('PST')
     return tempdata
 #   plt.gca().set_color_cycle(['black', 'red','blue'])
 #    tempdata.plot()
@@ -388,40 +416,56 @@ def morningDNIfix(date,param,wdata):
     DNImdif2DER=[]
     DNIfix=[]
     airmass_time=getAirmass(wdata)
-    smodel=getModel(date,param,wdata)
+    smodel=getSModel(date,param,wdata)
     model=getModel(date,param,wdata)
-
+    
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        DNImdif.append(smodel.loc(x,'SModelDNI')-model.loc(x,'DataDNI'))
+        DNIfix.append(model.loc[x,'DataDNI'])
+        x=x+1   
+    
+    x=0
+    for time in range(airmass_time[0],airmass_time[1]):
+        DNImdif.append(smodel.loc[x,'SModelDNI']-model.loc[x,'DataDNI'])
         x=x+1
     
-    for time in range(1,len(DNImdif.index)):
+    for time in range(1,len(DNImdif)):
         DNImdifDER.append(DNImdif[time]-DNImdif[time-1])
         
-    for time in range(1,len(DNImdifDER.index)):
+    for time in range(1,len(DNImdifDER)):
         DNImdif2DER.append(DNImdifDER[time]-DNImdifDER[time-1])
         
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        if model.loc(x,'DataZEN') <= 80:
+        if model.loc[x,'DataZEN'] <= 80:
             airmass80=x
             break
         x=x+1
         
-    for time in range((airmass80-2),0):
+    for time in range((airmass80+2),0,-1):
         if abs(DNImdif2DER[time]) > 6:
-            dipend=time
-            multiplier=model.loc(time,'DataDNI')/smodel.loc(time,'SModelDNI')
-            break
-            
-    for time in range(0,dipend):
-        DNIfix.append(multiplier*smodel.loc(time,'SModelDNI'))
+            dipend=time+2
+            multiplier=model.loc[time+2,'DataDNI']/smodel.loc[time+2,'SModelDNI']
+            break       
+    
+    if 'dipend' in locals():
         
-    if abs(DNIfix[0]-model.loc(0,'DataDNI')) < 30:
-        multiplier2=model.loc(0,'DataDNI')/DNIfix[0]
         for time in range(0,dipend):
-            DNIfix[time]=(((1-multiplier2)/(dipend)*(time-dipend)+1)*DNIfix[time])
+            DNIfix[time]=(multiplier*smodel.loc[time,'SModelDNI'])
+            if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                DNIfix[time]=model.loc[time,'DataDNI']
+        
+        print multiplier
+        print dipend        
+        
+        if abs(DNIfix[0]-model.loc[0,'DataDNI']) < 30:
+            multiplier2=model.loc[0,'DataDNI']/DNIfix[0]
+            for time in range(0,dipend):
+                DNIfix[time]=(((1-multiplier2)/(dipend)*(time-dipend)+1)*DNIfix[time])
+                if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                    DNIfix[time]=model.loc[time,'DataDNI']
+    else:
+        print 'No shading of NIP found'
     
     return DNIfix
     
@@ -436,37 +480,51 @@ def morningGHfix(date,param,wdata):
     smodel=getSModel(date,param, wdata)
     model=getModel(date,param,wdata)
     airmass_time=getAirmass(wdata)
+    
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        GHmdif.append(smodel.loc(x,'SModelGH')-model.loc(x,'DataGH'))
+        GHfix.append(model.loc[x,'DataGH'])
+        x=x+1    
+    
+    x=0
+    for time in range(airmass_time[0],airmass_time[1]):
+        GHmdif.append(smodel.loc[x,'SModelGH']-model.loc[x,'DataGH'])
         x=x+1
     
-    for time in range(1,len(GHmdif.index)):
+    for time in range(1,len(GHmdif)):
         GHmdifDER.append(GHmdif[time]-GHmdif[time-1])
         
-    for time in range(1,len(GHmdifDER.index)):
+    for time in range(1,len(GHmdifDER)):
         GHmdif2DER.append(GHmdifDER[time]-GHmdifDER[time-1])
         
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        if model.loc(x,'DataZEN') <= 80:
+        if model.loc[x,'DataZEN'] <= 80:
             airmass80=x
             break
         x=x+1
         
-    for time in range((airmass80-2),0):
+    for time in range((airmass80+2),0,-1):
         if abs(GHmdif2DER[time]) > 4:
-            dipend=time
-            multiplier=model.loc(time,'DataGH')/smodel.loc(time,'SModelGH')
+            dipend=time+2
+            multiplier=model.loc[time+2,'DataGH']/smodel.loc[time+2,'SModelGH']
             break
-        
-    for time in range(0,dipend):
-        GHfix.append(multiplier*smodel.loc(time,'SModelGH'))
-        
-    if abs(GHfix[0]-model.loc(0,'DataGH')) < 15:
-        multiplier2=model.loc(0,'DataGH')/GHfix[0]
+
+    if 'dipend' in locals():    
+    
         for time in range(0,dipend):
-            GHfix[time]=(((1-multiplier2)/(dipend)*(time-dipend)+1)*GHfix[time])
+            GHfix[time]=(multiplier*smodel.loc[time,'SModelGH'])
+            if (model.loc[time,'DataGH'])>GHfix[time]:
+                    GHfix[time]=model.loc[time,'DataGH']
+                    
+        if abs(GHfix[0]-model.loc[0,'DataGH']) < 15:
+            multiplier2=model.loc[0,'DataGH']/GHfix[0]
+            for time in range(0,dipend):
+                GHfix[time]=(((1-multiplier2)/(dipend)*(time-dipend)+1)*GHfix[time])
+                if (model.loc[time,'DataGH'])>GHfix[time]:
+                    GHfix[time]=model.loc[time,'DataGH']
+    else:
+        print 'No shading of Global Horizontal found'
 
     return GHfix
     
@@ -477,8 +535,11 @@ def eveningDNIfix(date,param,wdata):
     DNImdifDER=[]
     DNImdif2DER=[]
     DNIfix=[]
+    dipend=[]
+    dipbegin=[]
+    multiplier=[]
+    multiplier2=[]
     switch1=0
-    switch2=0
     airmass_time=getAirmass(wdata)
     smodel=getSModel(date,param, wdata)
     model=getModel(date,param,wdata)
@@ -486,168 +547,345 @@ def eveningDNIfix(date,param,wdata):
     
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        DNImdif.append(model.loc(x,'ModelDNI')-model.loc(x,'DataDNI'))
-        x=x+1
+        DNIfix.append(model.loc[x,'DataDNI'])
+        x=x+1          
     
-    for time in range(1,len(DNImdif.index)):
-        DNImdifDER.append(DNImdif[time]-DNImdif[time-1])
+    if ztime[1]>0:
+        x=0
+        for time in range(airmass_time[0],airmass_time[1]):
+            DNImdif.append(model.loc[x,'ModelDNI']-model.loc[x,'DataDNI'])
+            x=x+1
         
-    for time in range(1,len(DNImdifDER.index)):
-        DNImdif2DER.append(DNImdifDER[time]-DNImdifDER[time-1])
-        
-    for time in range(ztime[0]-2,ztime[1]-2):
-        if abs(DNImdif2DER[time]) > 11:
-            dipbegin=time
-            if model.loc(dipbegin,'DataZEN')<70:
-                multiplier=model.loc(dipbegin,'DataDNI')/model.loc(dipbegin,'ModelDNI')
-            else:
-                multiplier=model.loc(dipbegin,'DataDNI')/smodel.loc(dipbegin,'SModelDNI')
-            break
-    
-    for time in range(dipbegin,ztime[1]-2):
-        if abs(DNImdif2DER[time]) < 7:
-            switch1=1
-        if switch1==1:
+        for time in range(1,len(DNImdif)):
+            DNImdifDER.append(DNImdif[time]-DNImdif[time-1])
+            
+        for time in range(1,len(DNImdifDER)):
+            DNImdif2DER.append(DNImdifDER[time]-DNImdifDER[time-1])
+            
+        for time in range(ztime[0]-2,ztime[1]-2):
             if abs(DNImdif2DER[time]) > 11:
-                switch2=1
-        if switch2==1:
-            if abs(DNImdif2DER[time]) < 7:
-                dipend=time
-                if model.loc(dipbegin,'DataZEN')<70:
-                    multiplier2=model.loc(dipend,'DataDNI')/model.loc(dipend,'ModelDNI')
-                else:
-                    multiplier2=model.loc(dipend,'DataDNI')/smodel.loc(dipend,'SModelDNI')
+                dipbegin.append(time)
+#                if model.loc[dipbegin[0],'DataZEN']<70:
+#                    multiplier.append(model.loc[dipbegin[0],'DataDNI']/model.loc[dipbegin[0],'ModelDNI'])
+#                else:
+#                    multiplier.append(model.loc[dipbegin[0],'DataDNI']/smodel.loc[dipbegin[0],'SModelDNI'])
                 break
-
-    for time in range(dipbegin,dipend):
-        if model.loc(dipbegin,'DataZEN')<70:
-            DNIfix.append(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*model.loc(time,'ModelDNI'))
-        else:
-            DNIfix.append(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*smodel.loc(time,'SModelDNI'))
-    
-    
-    switch1=0
-    for time in range((dipend+1),(ztime[1]-2)):
-        if abs(DNImdif2DER[time]) < 7:
-            switch1=1
-            if switch1==1:
-                if abs(DNImdif2DER[time]) > 11:
-                    dipbegin=time
-                    if model.loc(dipbegin,'DataZEN')<70:
-                        multiplier=model.loc(dipbegin,'DataDNI')/model.loc(dipbegin,'ModelDNI')
-                    else:
-                        multiplier=model.loc(dipbegin,'DataDNI')/smodel.loc(dipbegin,'SModelDNI')
-                    break
+        
+        if len(dipbegin)>0:      
+        
+#        for time in range(dipbegin,ztime[1]-2):
+#            if abs(DNImdif2DER[time]) < 7:
+#                switch1=1
+#            if switch1==1:
+#                if abs(DNImdif2DER[time]) > 11:
+#                    switch2=1
+#            if switch2==1:
+#                if abs(DNImdif2DER[time]) < 7:
+#                    dipend=time
+#                    if model.loc[dipbegin,'DataZEN']<70:
+#                        multiplier2=model.loc[dipend,'DataDNI']/model.loc[dipend,'ModelDNI']
+#                    else:
+#                        multiplier2=model.loc[dipend,'DataDNI']/smodel.loc[dipend,'SModelDNI']
+#                    break
+            DNIedit = [0]*len(DNIfix)
+            mcorr = 0
+            x=0
+            for time in range((dipbegin[0]-5),(dipbegin[0]-1)):
+                mcorr = mcorr + DNImdif[time]
+                x=x+1
+        
+            mcorr = mcorr/x +1.35
+           
+            for time in range(dipbegin[0], ztime[1]-1):
+                if abs(DNImdif[time]-((5.5-mcorr)/(ztime[1]-dipbegin[0])*(time-dipbegin[0])+mcorr)) > 20:
+                    DNIedit[time]=1
+            
+#            print mcorr
+#            print DNIedit
+#            print DNImdif            
+            
+            for time in range(dipbegin[0]+2, ztime[1]-1):
+                if switch1==0:            
+                    if DNIedit[time]==0:
+                        dipend.append(time+1)
+                        switch1=1
                 else:
-                    DNIfix.append(model.loc(time,'DataDNI'))
-        else:
-            DNIfix.append(model.loc(time,'DataDNI'))
+                    if DNIedit[time]==1:
+                        dipbegin.append(time-1)
+                        switch1=0
+            
+            if len(dipbegin)>len(dipend):
+                dipend.append(ztime[1])
+                dipbegin[len(dipbegin)-1]=dipbegin[len(dipbegin)-1]-2
+            
+            for time in range(0,len(dipbegin)):
+                if (dipend[time]-dipbegin[time])>1:
+                    if model.loc[dipbegin[time],'DataZEN']<70:
+                        multiplier.append(model.loc[dipbegin[time],'DataDNI']/model.loc[dipbegin[time],'ModelDNI'])
+                        multiplier2.append(model.loc[dipend[time],'DataDNI']/model.loc[dipend[time],'ModelDNI'])
+                    else:
+                        multiplier.append(model.loc[dipbegin[time],'DataDNI']/smodel.loc[dipbegin[time],'SModelDNI'])
+                        multiplier2.append(model.loc[dipend[time],'DataDNI']/smodel.loc[dipend[time],'SModelDNI'])
+
+
+            for time in range(0, len(multiplier)):
+                for times in range(dipbegin[time],dipend[time]):
+                    if model.loc[dipbegin[time],'DataZEN']<70:
+                        DNIfix[times]=(((multiplier2[time]-multiplier[time])/(dipend[time]-dipbegin[time])*(times-dipbegin[time])+multiplier[time])*model.loc[times,'ModelDNI'])
+                        if model.loc[times,'DataDNI']>DNIfix[times]:
+                            DNIfix[times]=model.loc[times,'DataDNI']
+                    else:
+                        DNIfix[times]=(((multiplier2[time]-multiplier[time])/(dipend[time]-dipbegin[time])*(times-dipbegin[time])+multiplier[time])*smodel.loc[times,'SModelDNI'])
+                        if model.loc[times,'DataDNI']>DNIfix[times]:
+                            DNIfix[times]=model.loc[times,'DataDNI']
+
+#        for time in range(dipbegin,dipend):
+#            if model.loc[dipbegin,'DataZEN']<70:
+#                DNIfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*model.loc[time,'ModelDNI'])
+#            else:
+#                DNIfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*smodel.loc[time,'SModelDNI'])
         
         
-    for time in range(dipbegin,ztime[1]):
-        if model.loc(dipbegin,'DateZEN')<70:
-            DNIfix.append(multiplier*model.loc(time,'ModelDNI'))
-        else:
-            DNIfix.append(multiplier*smodel.loc(time,'SModelDNI'))
-    
-    if abs(DNIfix[ztime[1]]-model.loc(ztime[1],'DataDNI')) < 30:
-        multiplier2=model.loc(ztime[1],'DataDNI')/DNIfix[ztime[1]]
-        for time in range(dipbegin,ztime[1]):
-            DNIfix[time]=(((multiplier2-1)/(ztime[1]-dipbegin)*(time-dipbegin)+1)*DNIfix[time])
-    
+#        switch1=0
+#        for time in range((dipend+1),(ztime[1])-2):
+#            if abs(DNImdif2DER[time]) < 7:
+#                switch1=1
+#                if switch1==1:
+#                    if abs(DNImdif2DER[time]) > 11:
+#                        dipbegin=time
+#                        if model.loc[dipbegin,'DataZEN']<70:
+#                            multiplier=model.loc[dipbegin,'DataDNI']/model.loc[dipbegin,'ModelDNI']
+#                        else:
+#                            multiplier=model.loc[dipbegin,'DataDNI']/smodel.loc[dipbegin,'SModelDNI']
+#                        break
+#                    else:
+#                        DNIfix[time]=(model.loc[time,'DataDNI'])
+#            else:
+#                DNIfix[time]=(model.loc[time,'DataDNI'])
+#            for time in range(dipbegin,ztime[1]):
+#                if model.loc[dipbegin,'DateZEN']<70:
+#                    DNIfix[time]=(multiplier*model.loc[time,'ModelDNI'])
+#                else:
+#                    DNIfix[time]=(multiplier*smodel.loc[time,'SModelDNI'])
+#        
+#            if abs(DNIfix[ztime[1]]-model.loc[ztime[1],'DataDNI']) < 30:
+#                multiplier2=model.loc[ztime[1],'DataDNI']/DNIfix[ztime[1]]
+#                for time in range(dipbegin,ztime[1]):
+#                    DNIfix[time]=(((multiplier2-1)/(ztime[1]-dipbegin)*(time-dipbegin)+1)*DNIfix[time])
+        
+
     return DNIfix
 #------------------------------------------------------------------------------
 def eveningGHfix(date,param,wdata):
     GHmdif=[]
     GHmdifDER=[]
     GHmdif2DER=[]
+    GHfix=[]
     DNImdif=[]
     DNImdifDER=[]
     DNImdif2DER=[]
-    GHfix=[]
+    dipend=[]
+    dipbegin=[]
+    multiplier=[]
+    multiplier2=[]
     switch1=0
-    switch2=0
+#    switch2=0
     airmass_time=getAirmass(wdata)
     smodel=getSModel(date,param, wdata)
     model=getModel(date,param,wdata)
     ztime=getghstart(date,airmass_time,wdata)
-    
-    
+    dnishade=getdnishade(date,airmass_time,wdata)
+  
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
-        GHmdif.append(model.loc(x,'ModelGH')-model.loc(x,'DataGH'))
-        DNImdif.append(model.loc(x,'ModelDNI')-model.loc(x,'DataDNI'))
+        GHfix.append(model.loc[x,'DataGH'])
+        x=x+1
+
+    x=0
+    for time in range(airmass_time[0],airmass_time[1]):
+        GHmdif.append(model.loc[x,'ModelGH']-model.loc[x,'DataGH'])
+        DNImdif.append(model.loc[x,'ModelDNI']-model.loc[x,'DataDNI'])
         x=x+1
     
-    for time in range(1,len(GHmdif.index)):
+    for time in range(1,len(GHmdif)):
         GHmdifDER.append(GHmdif[time]-GHmdif[time-1])
         DNImdifDER.append(DNImdif[time]-DNImdif[time-1])
         
-    for time in range(1,len(GHmdifDER.index)):
+    for time in range(1,len(GHmdifDER)):
         GHmdif2DER.append(GHmdifDER[time]-GHmdifDER[time-1])
         DNImdif2DER.append(DNImdifDER[time]-DNImdifDER[time-1])
-        
+    
     for time in range(ztime[0]-2,ztime[1]-2):
-        if abs(GHmdif2DER[time]) > 10:
-            dipbegin=time
-            if model.loc(dipbegin,'DataZEN')<70:
-                multiplier=model.loc(dipbegin,'DataGH')/model.loc(dipbegin,'ModelGH')
-            else:
-                multiplier=model.loc(dipbegin,'DataGH')/smodel.loc(dipbegin,'SModelGH')
-            break
-    
-    for time in range(dipbegin,ztime[1]-2):
-        if abs(GHmdif2DER[time]) < 10:
-            switch1=1
-        if switch1==1:
+        if abs(DNImdifDER[time]) < 12:        
             if abs(GHmdif2DER[time]) > 10:
-                switch2=1
-        if switch2==1:
-            if abs(GHmdif2DER[time]) < 10:
-                dipend=time
-                if model.loc(dipbegin,'DataZEN')<70:
-                    multiplier2=model.loc(dipend,'DataGH')/model.loc(dipend,'ModelGH')
-                else:
-                    multiplier2=model.loc(dipend,'DataGH')/smodel.loc(dipend,'SModelGH')
+                dipbegin.append(time-1)
+#                if model.loc[dipbegin[0],'DataZEN']<70:
+#                    multiplier.append(model.loc[dipbegin[0],'DataGH']/model.loc[dipbegin[0],'ModelGH'])
+#                else:
+#                    multiplier.append(model.loc[dipbegin[0],'DataGH']/smodel.loc[dipbegin[0],'SModelGH'])
                 break
-
-    for time in range(dipbegin,dipend):
-        if model.loc(dipbegin,'DataZEN')<70:
-            GHfix.append(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*model.loc(time,'ModelGH'))
+    
+    
+    if len(dipbegin)>0:
+#        ysum=0
+#        xsqrsum=0
+#        xysum=0
+#        xsum=0
+#        for time in range(dipbegin-5,dipbegin):
+#            ysum=ysum+model.loc[time,'DataGH']
+#            xsqrsum=xsqrsum+math.pow(time,2)
+#            xysum=xysum+time*model.loc[time,'DataGH']
+#            xsum=xsum+time
+#        
+#        a=((ysum*xsqrsum)-(xsum*xysum))/(5*xsqrsum-math.pow(xsum,2))
+#        b=((5*xysum)-(xsum*ysum))/(5*xsqrsum-math.pow(xsum,2))
+        
+        #for time in range(dipbegin,ztime[1]-2):
+        #    if abs(GHmdif2DER[time]) < 10:
+        #        switch1=1
+        #    if switch1==1:
+        #        if abs(GHmdif2DER[time]) > 10:
+        #            switch2=1
+        #    if switch2==1:
+        #        if abs(GHmdif2DER[time]) < 10:
+        #            dipend=time
+        #            if model.loc[dipbegin,'DataZEN']<70:
+        #                multiplier2=model.loc[dipend,'DataGH']/model.loc[dipend,'ModelGH']
+        #            else:
+        #                multiplier2=model.loc[dipend,'DataGH']/smodel.loc[dipend,'SModelGH']
+        #            break
+        GHedit = [0]*len(GHfix)
+        mcorr = 0
+        x=0
+        for time in range((dipbegin[0]-5),(dipbegin[0]-1)):
+            mcorr = mcorr + GHmdif[time]
+            x=x+1
+        
+        mcorr = mcorr/x
+        
+        if mcorr > 10:
+            mcorr=mcorr +1.35
+            endcorr=5.5
         else:
-            GHfix.append(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*smodel.loc(time,'SModelGH'))
-    
-    
-    switch1=0
-    for time in range((dipend+1),(ztime[1]-2)):
-        if abs(GHmdif2DER[time]) < 10:
-            switch1=1
-            if switch1==1:
-                if abs(GHmdif2DER[time]) > 10:
-                    dipbegin=time
-                    if  model.loc(dipbegin,'DataZEN')<70:
-                        multiplier=model.loc(dipbegin,'DataGH')/model.loc(dipbegin,'ModelGH')
-                    else:
-                        multiplier=model.loc(dipbegin,'DataGH')/smodel.loc(dipbegin,'SModelGH')
-                    break
+            endcorr=-2
+            
+        for time in range(dipbegin[0], ztime[1]-1):
+            if abs(GHmdif[time]-((endcorr-mcorr)/(ztime[1]-dipbegin[0])*(time-dipbegin[0])+mcorr)) > 16.7:
+                if dnishade[time]==0:           
+                    if DNImdif[time]<100:
+                        GHedit[time]=1
                 else:
-                    GHfix.append(model.loc(time,'DataGH'))
-        else:
-            GHfix.append(model.loc(time,'DataGH'))
+                     GHedit[time]=1
+            else:
+                if time<(dipbegin[0]+3):
+                    if dnishade[time]==0:           
+                        if DNImdif[time]<100:
+                            GHedit[time]=1
         
+        for time in range(dipbegin[0]+2, ztime[1]-1):
+            if switch1==0:            
+                if GHedit[time]==0:
+                    dipend.append(time+1)
+                    switch1=1
+            else:
+                if GHedit[time]==1:
+                    dipbegin.append(time-1)
+                    switch1=0
+
+        if len(dipbegin)>len(dipend):
+            dipend.append(ztime[1])
+            dipbegin[len(dipbegin)-1]=dipbegin[len(dipbegin)-1]-2
+                
+        for time in range(0,len(dipbegin)):
+#            if abs(model.loc[time,'DataGH']-(a+b*time))<=2:
+#                dipend=time
+            if (dipend[time]-dipbegin[time])>1:
+                if model.loc[dipbegin[time],'DataZEN']<70:
+                    multiplier.append(model.loc[dipbegin[time],'DataGH']/model.loc[dipbegin[time],'ModelGH'])
+                    multiplier2.append(model.loc[dipend[time],'DataGH']/model.loc[dipend[time],'ModelGH'])
+                else:
+                    multiplier.append(model.loc[dipbegin[time],'DataGH']/smodel.loc[dipbegin[time],'SModelGH'])
+                    multiplier2.append(model.loc[dipend[time],'DataGH']/smodel.loc[dipend[time],'SModelGH'])
         
-    for time in range(dipbegin,ztime[1]):
-        if model.loc(dipbegin,'DataZEN')<70:
-            GHfix.append(multiplier*model.loc(time,'ModelGH'))
-        else:
-            GHfix.append(multiplier*smodel.loc(time,'SModelGH'))
-    
-    if abs(GHfix[ztime[1]]-model.loc(ztime[1],'DataGH')) < 15:
-        multiplier2=model.loc(ztime[1],'DataGH')/GHfix[ztime[1]]
-        for time in range(dipbegin,ztime[1]):
-            GHfix[time]=(((multiplier2-1)/(ztime[1]-dipbegin)*(time-dipbegin)+1)*GHfix[time])
-    
-    return GHfix
+        print GHedit
+        print GHmdif        
+        print mcorr
+        print dipbegin        
+        print dipend
+        
+        for time in range(0, len(multiplier)):
+            for times in range(dipbegin[time],dipend[time]):
+                if model.loc[dipbegin[time],'DataZEN']<70:
+                    GHfix[times]=(((multiplier2[time]-multiplier[time])/(dipend[time]-dipbegin[time])*(times-dipbegin[time])+multiplier[time])*model.loc[times,'ModelGH'])
+                    if model.loc[times,'DataGH']>GHfix[times]:
+                        GHfix[times]=model.loc[times,'DataGH']
+                else:
+                    GHfix[times]=(((multiplier2[time]-multiplier[time])/(dipend[time]-dipbegin[time])*(times-dipbegin[time])+multiplier[time])*smodel.loc[times,'SModelGH'])
+                    if model.loc[times,'DataGH']>GHfix[times]:
+                        GHfix[times]=model.loc[times,'DataGH']
+
+        
+#        for time in range(dipbegin,dipend):
+#            if model.loc[dipbegin,'DataZEN']<70:
+#                GHfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*model.loc[time,'ModelGH'])
+#            else:
+#                GHfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*smodel.loc[time,'SModelGH'])
+#
+#        for time in range((dipend+1),(ztime[1]-2)):
+#            if abs(GHmdif2DER[time]) > 10:
+#                    dipbegin=time
+#                    if  model.loc[dipbegin,'DataZEN']<70:
+#                        multiplier=model.loc[dipbegin,'DataGH']/model.loc[dipbegin,'ModelGH']
+#                    else:
+#                        multiplier=model.loc[dipbegin,'DataGH']/smodel.loc[dipbegin,'SModelGH']
+#                    break
+#            else:
+#                GHfix[time]=(model.loc[time,'DataGH'])
+        
+#        ysum=0
+#        xsqrsum=0
+#        xysum=0
+#        xsum=0
+#        for time in range(dipbegin-5,dipbegin):
+#            ysum=ysum+model.loc[time,'DataGH']
+#            xsqrsum=xsqrsum+math.pow(time,2)
+#            xysum=xysum+time*model.loc[time,'DataGH']
+#            xsum=xsum+time
+#        
+#        a=((ysum*xsqrsum)-(xsum*xysum))/(5*xsqrsum-math.pow(xsum,2))
+#        b=((5*xysum)-(xsum*ysum))/(5*xsqrsum-math.pow(xsum,2))
+#        
+#        for time in range(dipbegin+2,ztime[1]-2):
+#            if abs(model.loc[time,'DataGH']-(a+b*time))<=2:
+#                dipend=time
+#                if model.loc[dipbegin,'DataZEN']<70:
+#                    multiplier2=model.loc[dipend,'DataGH']/model.loc[dipend,'ModelGH']
+#                else:
+#                    multiplier2=model.loc[dipend,'DataGH']/smodel.loc[dipend,'SModelGH']
+#                break
+            
+        
+#        for time in range(dipbegin,ztime[1]):
+#            if model.loc[dipbegin,'DataZEN']<70:
+#                GHfix[time]=(multiplier*model.loc[time,'ModelGH'])
+#            else:
+#                GHfix[time]=(multiplier*smodel.loc[time,'SModelGH'])
+        
+#        if abs(GHfix[ztime[1]]-model.loc[ztime[1],'DataGH']) < 15:
+#            multiplier2=model.loc[ztime[1],'DataGH']/GHfix[ztime[1]]
+#            for time in range(dipbegin,ztime[1]):
+#                GHfix[time]=(((multiplier2-1)/(ztime[1]-dipbegin)*(time-dipbegin)+1)*GHfix[time])
+        
+#        for time in range(dipbegin,dipend):
+#            if model.loc[dipbegin,'DataZEN']<70:
+#                GHfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*model.loc[time,'ModelGH'])
+#            else:
+#                GHfix[time]=(((multiplier2-multiplier)/(dipend-dipbegin)*(time-dipbegin)+multiplier)*smodel.loc[time,'SModelGH'])
+        
+        return GHfix
+    else:
+        print 'no shading found for Global Horizontal'
+        return GHfix
 #------------------------------------------------------------------------------
 def getFixdata(datefix,param,model,wdata):
     fixedData=[]
@@ -693,7 +931,7 @@ def getFixdata(datefix,param,model,wdata):
             fixedData.append(eveningGHfix(datefix,param,wdata))
             case='both'
     
-     
+
         graphdata(fixedData,wdata,case)
         response=prompt('Are the Changes Acceptable? 1=yes for both, 2=only DNI, 3=only GH, 4=manual fix')
         
