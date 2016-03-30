@@ -4,6 +4,7 @@
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import ion, show
 from dateutil import parser
 #from datetime import datetime as dt
 from datetime import date
@@ -64,6 +65,7 @@ def graphdata(fixedData,wdata,case):
     tempdata.reset_index(drop=True)
     tempdata=tempdata.set_index('Time')
     tempdata.plot()
+    plt.waitforbuttonpress()
     pass
 
 #------------------------------------------------------------------------------
@@ -108,25 +110,78 @@ position=[] #global variable position
 fig=0 #global variable position
 cid=0 #global variable position
 def manualDatafix(fixedData,wdata,case):
-    dataDNI=dataGH=PST=[]    
-    airmass=getAirmass(wdata)    
-    for i in range (airmass[0],airmass[1]):
-        dataDNI.append(wdata.loc[i,'Direct Normal [W/m^2]'])
-        dataGH.append(wdata.loc[i,'Global Horiz [W/m^2]'])
-        PST.append(wdata.loc[i,'PST'])
-   
-    tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH))
-    fig = plt.figure()
-    tempdata = fig.add_subplot(111)
-    tempdata.plot()
-    cid = fig.canvas.mpl_connect('button_press_event', onclick)
+    GHfix=[]
+    DNIfix=[]    
+    position=[]
+    airmass_time=getAirmass(wdata)    
+    smodel=getSModel(date,param, wdata)
+    model=getModel(date,param,wdata)    
+    
+    x=0
+    for time in range(airmass_time[0],airmass_time[1]):
+        GHfix.append(model.loc[x,'DataGH'])
+        x=x+1
+        
+    x=0
+    for time in range(airmass_time[0],airmass_time[1]):
+        DNIfix.append(model.loc[x,'DataDNI'])
+        x=x+1
+        
+    tempdata=pd.DataFrame(dict(Time=model.loc[:,'PST'],DataDNI=model.loc[:,'DataDNI'], DataGH=model.loc[:,'DataGH']))
+    fig, ax = plt.subplots()
+    tolerance = tempdata.index[len(tempdata)-1]+1 # points
+    ax.plot(tempdata.index,tempdata.loc[:,'DataDNI'],tempdata.index,tempdata.loc[:,'DataGH'], picker=tolerance)
+    plt.waitforbuttonpress()
+    dips = int(prompt('How many dips are there? Press 9 for replacing whole day'))
+    if dips != 9:    
+        while len(position)<(dips*2):
+            fig.canvas.mpl_connect('button_press_event', on_press)
+            plt.waitforbuttonpress()
+            if plt.waitforbuttonpress(): 
+                plt.close()        
+                break
 
-def onclick(event):
+        plt.close()
+        if position[len(position)-1]>airmass_time[1]:
+            position[len(position-1)]=airmass_time[1]
+            
+        x=0
+        for time in range(1,dips):
+            if case == 'DNI':        
+                if model.loc[position[x],'DataZEN']<70:
+                    multiplier=(model.loc[position[x],'DataDNI'])/model.loc[(position[x],'ModelDNI')]
+                    multiplier2=(model.loc[position[x+1],'DataDNI'])/model.loc[(position[x+1],'ModelDNI')]
+                    for i in range(position[x],position[x+1]):
+                        DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'ModelDNI'])
+                else:
+                    multiplier=(model.loc[position[x],'DataDNI'])/smodel.loc[(position[x],'SModelDNI')]
+                    multiplier2=(model.loc[position[x+1],'DataDNI'])/smodel.loc[(position[x+1],'SModelDNI')]
+                    for i in range(position[x],position[x+1]):
+                        DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'SModelDNI'])
+                x=x+2
+            else:
+                if model.loc[position[x],'DataZEN']<70:
+                    multiplier=(model.loc[position[x],'DataGH'])/model.loc[(position[x],'ModelGH')]
+                    multiplier2=(model.loc[position[x+1],'DataGH'])/model.loc[(position[x+1],'ModelGH')]
+                    for i in range(position[x],position[x+1]):
+                        GHfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'ModelGH'])
+                else:
+                    multiplier=(model.loc[position[x],'DataGH'])/smodel.loc[(position[x],'SModelGH')]
+                    multiplier2=(model.loc[position[x+1],'DataGH'])/smodel.loc[(position[x+1],'SModelGH')]
+                    for i in range(position[x],position[x+1]):
+                        GHfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'SModelGH'])
+                x=x+2
+
+    
+
+#def onclick(event):
+#    if fig.canvas.manager.toolbar._active is None:
+#        print 'xdata=%f, ydata=%f'%(event.xdata, event.ydata)
+#        position.append([event.xdata,event.ydata])
+def on_press(event):
     if fig.canvas.manager.toolbar._active is None:
-        print 'xdata=%f, ydata=%f'%(event.xdata, event.ydata)
-        position.append([event.xdata,event.ydata])
-    
-    
+        print('you pressed', event.button, event.xdata, event.ydata)
+        position.append(int(round(event.xdata,0)))
     
 
 #------------------------------------------------------------------------------

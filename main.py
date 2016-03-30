@@ -39,7 +39,7 @@ for year in range(year_begin,year_end): #Loop for the number of years
     jobs_yr=getjobs_yr(year,mille,work) #Retrieves a list affected dates in the specified year
     job_days=len(jobs_yr.index)  #Sums up the number of affected dates for the year
     
-    for days in range(102,job_days):  #loop for the number of affected days
+    for days in range(100,job_days):  #loop for the number of affected days
         
         job_date=jobs_yr.loc[days,'date'] #Retrieves individual affected dates, based on the value of the parent loops iteration variable
         print job_date        
