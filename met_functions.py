@@ -10,6 +10,8 @@ from dateutil import parser
 from datetime import date
 import os
 import calendar
+import sys
+import time as te
 
 #------------------------------------------------------------------------------
 def flagerror(message):
@@ -105,17 +107,22 @@ def calcdiff(wdata):
         if (wdata.loc[time,'DIFF_Changed'])==1:
             wdata.loc[time,'Diffuse Horiz (calc) [W/m^2]']=(wdata.loc[time,'Global Horiz [W/m^2]']-wdata.loc[time,'Direct Normal [W/m^2]']*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi))
 #------------------------------------------------------------------------------
-            
-position=[] #global variable position
-fig=0 #global variable position
-cid=0 #global variable position
-def manualDatafix(fixedData,wdata,case):
+        
+
+def manualDatafix(datefix,wdata,case):
+    def on_press(event):
+        if fig.canvas.manager.toolbar._active is None:
+#            print('you pressed', event.button, event.xdata, event.ydata)
+            position.append(int(round(event.xdata,0)))
+            print position
+            sys.stdout.flush()            
     GHfix=[]
     DNIfix=[]    
+    global position
     position=[]
     airmass_time=getAirmass(wdata)    
-    smodel=getSModel(date,param, wdata)
-    model=getModel(date,param,wdata)    
+    smodel=getSModel(datefix,case,wdata)
+    model=getModel(datefix,case,wdata)    
     
     x=0
     for time in range(airmass_time[0],airmass_time[1]):
@@ -126,39 +133,66 @@ def manualDatafix(fixedData,wdata,case):
     for time in range(airmass_time[0],airmass_time[1]):
         DNIfix.append(model.loc[x,'DataDNI'])
         x=x+1
-        
+    plt.close()
+    print 'Check plot for type of problem. Count the number of shading dips and press a key when finished'
+    sys.stdout.flush()    
     tempdata=pd.DataFrame(dict(Time=model.loc[:,'PST'],DataDNI=model.loc[:,'DataDNI'], DataGH=model.loc[:,'DataGH']))
     fig, ax = plt.subplots()
     tolerance = tempdata.index[len(tempdata)-1]+1 # points
     ax.plot(tempdata.index,tempdata.loc[:,'DataDNI'],tempdata.index,tempdata.loc[:,'DataGH'], picker=tolerance)
     plt.waitforbuttonpress()
-    dips = int(prompt('How many dips are there? Press 9 for replacing whole day'))
-    if dips != 9:    
-        while len(position)<(dips*2):
+    dips=int(input('How many dips are there? Press 9 for replacing whole day'))
+    if case == 'DNI':    
+        useGH=int(input('Should GH be used to modify the DNI? (press 1 for yes and 2 for no)'))
+    
+    sys.stdout.flush()    
+    if dips != 9 and dips != 0:   
+        print 'Select beginning and end points for each dip starting on leftmost dip'
+        while len(position) < (dips*2):
+#            onpress(fig,ax)
             fig.canvas.mpl_connect('button_press_event', on_press)
+            print len(position)
+            print (dips*2)
+            print case
+            sys.stdout.flush() 
             plt.waitforbuttonpress()
-            if plt.waitforbuttonpress(): 
-                plt.close()        
-                break
+#            if plt.waitforbuttonpress(): 
+#                plt.close()
+#                break
 
         plt.close()
-        if position[len(position)-1]>airmass_time[1]:
-            position[len(position-1)]=airmass_time[1]
-            
+        if position[len(position)-1]>(airmass_time[1]-airmass_time[0]):
+            position[len(position)-1]=(airmass_time[1]-airmass_time[0])
+        
+
         x=0
-        for time in range(1,dips):
-            if case == 'DNI':        
-                if model.loc[position[x],'DataZEN']<70:
-                    multiplier=(model.loc[position[x],'DataDNI'])/model.loc[(position[x],'ModelDNI')]
-                    multiplier2=(model.loc[position[x+1],'DataDNI'])/model.loc[(position[x+1],'ModelDNI')]
-                    for i in range(position[x],position[x+1]):
-                        DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'ModelDNI'])
+        for time in range(1,dips+1):
+            if case == 'DNI':   
+                if time != dips or (abs(position[len(position)-1]-(airmass_time[1]-airmass_time[0])))>5:
+                    if model.loc[position[x],'DataZEN']<70:
+                        multiplier=(model.loc[position[x],'DataDNI'])/model.loc[(position[x],'ModelDNI')]
+                        multiplier2=(model.loc[position[x+1],'DataDNI'])/model.loc[(position[x+1],'ModelDNI')]
+                        for i in range(position[x],position[x+1]):
+                            DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'ModelDNI'])
+                    else:
+                        multiplier=(model.loc[position[x],'DataDNI'])/smodel.loc[(position[x],'SModelDNI')]
+                        multiplier2=(model.loc[position[x+1],'DataDNI'])/smodel.loc[(position[x+1],'SModelDNI')]
+                        for i in range(position[x],position[x+1]):
+                            DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*smodel.loc[i,'SModelDNI'])
+                    x=x+2
                 else:
-                    multiplier=(model.loc[position[x],'DataDNI'])/smodel.loc[(position[x],'SModelDNI')]
-                    multiplier2=(model.loc[position[x+1],'DataDNI'])/smodel.loc[(position[x+1],'SModelDNI')]
-                    for i in range(position[x],position[x+1]):
-                        DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'SModelDNI'])
-                x=x+2
+                    if abs(position[len(position)-1]-(airmass_time[1]-airmass_time[0]))<6:                     
+                        if model.loc[position[x],'DataZEN']<70:
+                            multiplier=(model.loc[position[x],'DataDNI'])/model.loc[(position[x],'ModelDNI')]
+                            multiplier2=multiplier*0.95
+                            for i in range(position[x],position[x+1]):
+                                DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'ModelDNI'])
+                        else:
+                            multiplier=(model.loc[position[x],'DataDNI'])/smodel.loc[(position[x],'SModelDNI')]
+                            multiplier2=multiplier*0.95
+                            for i in range(position[x],position[x+1]):
+                                DNIfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*smodel.loc[i,'SModelDNI'])
+                        
             else:
                 if model.loc[position[x],'DataZEN']<70:
                     multiplier=(model.loc[position[x],'DataGH'])/model.loc[(position[x],'ModelGH')]
@@ -169,20 +203,153 @@ def manualDatafix(fixedData,wdata,case):
                     multiplier=(model.loc[position[x],'DataGH'])/smodel.loc[(position[x],'SModelGH')]
                     multiplier2=(model.loc[position[x+1],'DataGH'])/smodel.loc[(position[x+1],'SModelGH')]
                     for i in range(position[x],position[x+1]):
-                        GHfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*model.loc[i,'SModelGH'])
+                        GHfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*smodel.loc[i,'SModelGH'])
                 x=x+2
+        if case == 'DNI':
+            if useGH==1:
+                x=0
+                for time in range(1,dips+1):
+                    if time != dips:
+                        if model.loc[position[x],'DataZEN']<70:
+                            multiplier2=(model.loc[position[x],'DataGH'])/model.loc[position[x],'ModelGH']
+                            multiplier1=(model.loc[position[x+1],'DataGH'])/model.loc[position[x+1],'ModelGH']
+                            for i in range(position[x],position[x+1]):
+#                                multiplier=(model.loc[i,'DataGH'])/model.loc[i,'ModelGH']/multiplier2
+#                                multiplier=(1-abs(multiplier-1))-(1-(1-abs(multiplier-1)))*1.5
+#                                testdni=multiplier*DNIfix[i]                                
+                                multiplier=(abs(model.loc[i,'DataGH']-model.loc[i,'ModelGH']*((multiplier1-multiplier2)/(position[x+1]-position[x])*(i-position[x])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))                                
+                                testdni=DNIfix[i]-multiplier
+                                if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                    while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                        testdni=testdni-testdni*.005
+                                    DNIfix[i]=testdni
+                                else:
+                                    DNIfix[i]=testdni
+                        else:
+#                            multiplier2=(model.loc[position[x],'DataGH'])/smodel.loc[position[x],'SModelGH']
+                            multiplier2=(model.loc[position[x],'DataGH'])/smodel.loc[position[x],'SModelGH']
+                            multiplier1=(model.loc[position[x+1],'DataGH'])/smodel.loc[position[x+1],'SModelGH']
+                            for i in range(position[x],position[x+1]):
+#                                multiplier=(model.loc[i,'DataGH'])/smodel.loc[i,'SModelGH']/multiplier2
+#                                multiplier=(1-abs(multiplier-1))-(1-(1-abs(multiplier-1)))*1.5
+#                                testdni=multiplier*DNIfix[i]
+                                multiplier=(abs(model.loc[i,'DataGH']-smodel.loc[i,'SModelGH']*((multiplier1-multiplier2)/(position[x+1]-position[x])*(i-position[x])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))
+                                testdni=DNIfix[i]-multiplier
+                                if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                    while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                        testdni=testdni-testdni*.005
+                                    DNIfix[i]=testdni
+                                else:
+                                    DNIfix[i]=multiplier*DNIfix[i]
+                        x=x+2
+                    else:
+                        if abs(position[len(position)-1]-(airmass_time[1]-airmass_time[0]))>5:
+                            if model.loc[position[x],'DataZEN']<70:
+                                multiplier2=(model.loc[position[x],'DataGH'])/model.loc[position[x],'ModelGH']
+                                multiplier1=(model.loc[position[x+1],'DataGH'])/model.loc[position[x+1],'ModelGH']
+                                for i in range(position[x],position[x+1]):                             
+                                    multiplier=(abs(model.loc[i,'DataGH']-model.loc[i,'ModelGH']*((multiplier1-multiplier2)/(position[x+1]-position[x])*(i-position[x])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))                                
+                                    testdni=DNIfix[i]-multiplier
+                                    if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                        while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                            testdni=testdni-testdni*.005
+                                        DNIfix[i]=testdni
+                                    else:
+                                        DNIfix[i]=testdni
+                            else:
+                                multiplier2=(model.loc[position[x],'DataGH'])/smodel.loc[position[x],'SModelGH']
+                                multiplier1=(model.loc[position[x+1],'DataGH'])/smodel.loc[position[x+1],'SModelGH']
+                                for i in range(position[x],position[x+1]):
+                                    multiplier=(abs(model.loc[i,'DataGH']-smodel.loc[i,'SModelGH']*((multiplier1-multiplier2)/(position[x+1]-position[x])*(i-position[x])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))
+                                    testdni=DNIfix[i]-multiplier
+                                    if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                        while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                                            testdni=testdni-testdni*.005
+                                        DNIfix[i]=testdni
+                                    else:
+                                        DNIfix[i]=multiplier*DNIfix[i]
 
+                
+        
+        
+        fig, ax = plt.subplots()
+        if case == 'DNI':        
+            ax.plot(DNIfix)
+            plt.waitforbuttonpress()
+            return DNIfix
+        else:
+            ax.plot(GHfix)
+            plt.waitforbuttonpress()
+            return GHfix
+    elif dips == 0:
+        if case == 'DNI':        
+            ax.plot(DNIfix)
+            plt.waitforbuttonpress()
+            return DNIfix
+        else:
+            ax.plot(GHfix)
+            plt.waitforbuttonpress()
+            return GHfix
+    elif dips == 9:
+        if case == 'DNI':
+            x=0
+            for i in range(airmass_time[0],airmass_time[1]):
+                DNIfix[x]=model.loc[x,'ModelDNI']
+                x=x+1
+            if useGH==1:
+                print 'Pick a location to calibrate Global Horizonatal Model'
+                sys.stdout.flush() 
+                fig, ax = plt.subplots()
+                ax.plot(model.index,model.loc[:,'DataGH'],model.index,model.loc[:,'ModelGH'])
+                fig.canvas.mpl_connect('button_press_event', on_press)
+                plt.waitforbuttonpress()
+                multiplier2=(model.loc[position[0],'DataGH'])/model.loc[position[0],'ModelGH']
+                x=0
+                for i in range(airmass_time[0],airmass_time[1]):
+                    multiplier=(model.loc[x,'DataGH'])/model.loc[x,'ModelGH']/multiplier2
+                    multiplier=(1-abs(multiplier-1))-(1-(1-abs(multiplier-1)))*1.1
+                    testdni=multiplier*DNIfix[x]
+#                    multiplier=(abs(model.loc[x,'DataGH']-model.loc[x,'ModelGH']*multiplier2)/math.cos(model.loc[x,'DataZEN']/180*math.pi))                                
+#                    testdni=DNIfix[x]-multiplier
+                    if (model.loc[x,'DataGH']-testdni*math.cos(model.loc[x,'DataZEN']/180*math.pi))<5:
+                        while (model.loc[x,'DataGH']-testdni*math.cos(model.loc[x,'DataZEN']/180*math.pi))<5:
+                            testdni=testdni-testdni*.005
+                        if testdni<0:
+                            testdni=0
+                        DNIfix[x]=testdni
+                    else:
+                        if multiplier<0:
+                            DNIfix[x]=0
+                        elif multiplier<0.6:
+                            multiplier=multiplier*0.6
+                            DNIfix[x]=multiplier*DNIfix[x]
+                        else:
+                            DNIfix[x]=testdni
+                    x=x+1
+                plt.close()
+                fig, ax = plt.subplots()
+                ax.plot(model.index,model.loc[:,'DataGH'],model.index,DNIfix[:])
+                plt.waitforbuttonpress()
+        
+        
     
 
 #def onclick(event):
 #    if fig.canvas.manager.toolbar._active is None:
 #        print 'xdata=%f, ydata=%f'%(event.xdata, event.ydata)
 #        position.append([event.xdata,event.ydata])
-def on_press(event):
-    if fig.canvas.manager.toolbar._active is None:
-        print('you pressed', event.button, event.xdata, event.ydata)
-        position.append(int(round(event.xdata,0)))
-    
+#def onpress(fig,ax):
+#    def on_press(event):
+#        if fig.canvas.manager.toolbar._active is None:
+#            print('you pressed', event.button, event.xdata, event.ydata)
+#            position.append(int(round(event.xdata,0)))
+#            print position
+#            sys.stdout.flush()
+        
+#            plt.waitforbuttonpress()
+#    fig.canvas.mpl_connect('button_press_event', on_press)
+
+
 
 #------------------------------------------------------------------------------
 
@@ -510,8 +677,8 @@ def morningDNIfix(date,param,wdata):
             if (model.loc[time,'DataDNI'])>DNIfix[time]:
                 DNIfix[time]=model.loc[time,'DataDNI']
         
-        print multiplier
-        print dipend        
+#        print multiplier
+#        print dipend        
         
         if abs(DNIfix[0]-model.loc[0,'DataDNI']) < 30:
             multiplier2=model.loc[0,'DataDNI']/DNIfix[0]
@@ -862,11 +1029,11 @@ def eveningGHfix(date,param,wdata):
                     multiplier.append(model.loc[dipbegin[time],'DataGH']/smodel.loc[dipbegin[time],'SModelGH'])
                     multiplier2.append(model.loc[dipend[time],'DataGH']/smodel.loc[dipend[time],'SModelGH'])
         
-        print GHedit
-        print GHmdif        
-        print mcorr
-        print dipbegin        
-        print dipend
+#        print GHedit
+#        print GHmdif        
+#        print mcorr
+#        print dipbegin        
+#        print dipend
         
         for time in range(0, len(multiplier)):
             for times in range(dipbegin[time],dipend[time]):
@@ -955,14 +1122,14 @@ def getFixdata(datefix,param,model,wdata):
             if sensor == 1:                
                 return 0
             if sensor == 2:
-                fixedGH=manualDatafix(wdata,'GH')
+                fixedGH=manualDatafix(datefix,wdata,'GH')
                 graphdata(fixedGH,wdata,'GH')
             if sensor == 3:
-                fixedDNI=manualDatafix(wdata,'DNI')
+                fixedDNI=manualDatafix(datefix,wdata,'DNI')
                 graphdata(fixedDNI,wdata,'DNI')
             if sensor == 4:
-                fixedGH=manualDatafix(wdata,'GH')
-                fixedDNI=manualDatafix(wdata,'DNI')
+                fixedGH=manualDatafix(datefix,wdata,'GH')
+                fixedDNI=manualDatafix(datefix,wdata,'DNI')
                 graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
             response=prompt('Are the Changes Acceptable? 1=yes , 0=no')
     else:
@@ -988,7 +1155,13 @@ def getFixdata(datefix,param,model,wdata):
     
 
         graphdata(fixedData,wdata,case)
-        response=prompt('Are the Changes Acceptable? 1=yes for both, 2=only DNI, 3=only GH, 4=manual fix')
+        e=0
+        while e==0:        
+            response=input('Are the Changes Acceptable? 1=yes for both, 2=only DNI, 3=only GH, 4=manual fix')
+            if response==1 or response==2 or response==3 or response==4:
+                e=1
+                
+                
         
         if response == 1:
             if case == 'evening':
@@ -1066,8 +1239,8 @@ def getFixdata(datefix,param,model,wdata):
         if response == 4:
             response = 1
             while(response == 1):
-                fixedGH=manualDatafix(wdata,'GH')
-                fixedDNI=manualDatafix(wdata,'DNI')
+                fixedGH=manualDatafix(datefix,wdata,'GH')
+                fixedDNI=manualDatafix(datefix,wdata,'DNI')
                 graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
                 response=prompt('Are the Changes Acceptable? 1=yes, 0=no')
 
