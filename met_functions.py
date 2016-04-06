@@ -1246,8 +1246,9 @@ def getFixdata(datefix,param,model,wdata):
 
     temp=getTempdata(wdata)    
     newData=buildWdata(fixedDNI,fixedGH,temp)
-    newData= calcdiff(newData)
+    #newData= calcdiff(newData)
     return newData
+
           
 #------------------------------------------------------------------------------
     

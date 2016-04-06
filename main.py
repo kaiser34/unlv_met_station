@@ -53,7 +53,8 @@ for year in range(year_begin,year_end): #Loop for the number of years
         modelData=getModel(job_date,param,job)
         modelSData=getSModel(job_date,param,job)
         fixedData=getFixdata(job_date,param,modelData,job)
-        writedata(fixeddata,year)
+        print fixedData
+        writedata(fixedData,year)
         break
     break
 print 'The program has completed!'    
