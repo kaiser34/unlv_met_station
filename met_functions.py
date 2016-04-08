@@ -57,6 +57,9 @@ def graphdata(fixedData,wdata,case):
         dataDNI.append(wdata.loc[i,'Direct Normal [W/m^2]'])
         dataGH.append(wdata.loc[i,'Global Horiz [W/m^2]'])
         PST.append(wdata.loc[i,'PST'])
+    print len(fixedData)
+    print case
+    
     if len(fixedData)==2:
         tempdata=pd.DataFrame(dict(Time=PST,DataDNI=dataDNI, DataGH=dataGH, FixedDNI=fixedData[0], FixedGH=fixedData[1]))
     elif case == 'GH':
@@ -67,6 +70,8 @@ def graphdata(fixedData,wdata,case):
     tempdata.reset_index(drop=True)
     tempdata=tempdata.set_index('Time')
     tempdata.plot()
+    x1,x2,y1,y2 = plt.axis()
+    plt.axis((x1,x2,0,1300))
     plt.waitforbuttonpress()
     pass
 
@@ -106,6 +111,9 @@ def calcdiff(wdata):
     for time in range (airmass_time[0],airmass_time[1]):
         if (wdata.loc[time,'DIFF_Changed'])==1:
             wdata.loc[time,'Diffuse Horiz (calc) [W/m^2]']=(wdata.loc[time,'Global Horiz [W/m^2]']-wdata.loc[time,'Direct Normal [W/m^2]']*math.cos((wdata.loc[time,'Zenith Angle [degrees]']/180)*math.pi))
+    
+    return wdata
+            
 #------------------------------------------------------------------------------
         
 
@@ -134,6 +142,7 @@ def manualDatafix(datefix,wdata,case):
         DNIfix.append(model.loc[x,'DataDNI'])
         x=x+1
     plt.close()
+    print case
     print 'Check plot for type of problem. Count the number of shading dips and press a key when finished'
     sys.stdout.flush()    
     tempdata=pd.DataFrame(dict(Time=model.loc[:,'PST'],DataDNI=model.loc[:,'DataDNI'], DataGH=model.loc[:,'DataGH']))
@@ -141,12 +150,12 @@ def manualDatafix(datefix,wdata,case):
     tolerance = tempdata.index[len(tempdata)-1]+1 # points
     ax.plot(tempdata.index,tempdata.loc[:,'DataDNI'],tempdata.index,tempdata.loc[:,'DataGH'], picker=tolerance)
     plt.waitforbuttonpress()
-    dips=int(input('How many dips are there? Press 9 for replacing whole day'))
+    dips=int(input('How many dips are there? Press 7 for GH special case, Press 8 for morning special DNI case, Press 9 for replacing whole day'))
     if case == 'DNI':    
         useGH=int(input('Should GH be used to modify the DNI? (press 1 for yes and 2 for no)'))
     
     sys.stdout.flush()    
-    if dips != 9 and dips != 0:   
+    if dips != 9 and dips != 0 and dips != 8 and dips != 7:  
         print 'Select beginning and end points for each dip starting on leftmost dip'
         while len(position) < (dips*2):
 #            onpress(fig,ax)
@@ -240,7 +249,7 @@ def manualDatafix(datefix,wdata,case):
                                         testdni=testdni-testdni*.005
                                     DNIfix[i]=testdni
                                 else:
-                                    DNIfix[i]=multiplier*DNIfix[i]
+                                    DNIfix[i]=DNIfix[i]-multiplier
                         x=x+2
                     else:
                         if abs(position[len(position)-1]-(airmass_time[1]-airmass_time[0]))>5:
@@ -267,7 +276,12 @@ def manualDatafix(datefix,wdata,case):
                                             testdni=testdni-testdni*.005
                                         DNIfix[i]=testdni
                                     else:
-                                        DNIfix[i]=multiplier*DNIfix[i]
+                                        DNIfix[i]=DNIfix[i]-multiplier
+                x=0
+                for i in range(airmass_time[0]+1,airmass_time[1]-1):
+                    if DNIfix[x]<0:
+                        DNIfix[x]=DNIfix[x-1]
+                    x=x+1
 
                 
         
@@ -276,20 +290,91 @@ def manualDatafix(datefix,wdata,case):
         if case == 'DNI':        
             ax.plot(DNIfix)
             plt.waitforbuttonpress()
+            plt.close()
             return DNIfix
         else:
             ax.plot(GHfix)
             plt.waitforbuttonpress()
+            plt.close()
             return GHfix
     elif dips == 0:
         if case == 'DNI':        
             ax.plot(DNIfix)
             plt.waitforbuttonpress()
+            plt.close()
             return DNIfix
         else:
             ax.plot(GHfix)
             plt.waitforbuttonpress()
+            plt.close()
             return GHfix
+    elif dips ==8:
+        print 'Select end point for the morning dip'
+        while len(position) < (1):
+            fig.canvas.mpl_connect('button_press_event', on_press)
+            print len(position)
+            print case
+            sys.stdout.flush() 
+            plt.waitforbuttonpress()
+
+        plt.close()
+        multiplier=model.loc[position[0],'DataDNI']/model.loc[position[0],'ModelDNI']
+        print position
+        print multiplier
+        for time in range(0,position[0]):
+            DNIfix[time]=(multiplier*model.loc[time,'ModelDNI'])
+            if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                DNIfix[time]=model.loc[time,'DataDNI']
+        
+        if abs(DNIfix[0]-model.loc[0,'DataDNI']) < 30:
+            multiplier2=model.loc[0,'DataDNI']/DNIfix[0]
+            for time in range(0,position[0]):
+                DNIfix[time]=(((1-multiplier2)/(position[0])*(time-position[0])+1)*DNIfix[time])
+                if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                    DNIfix[time]=model.loc[time,'DataDNI']
+        if useGH==1:
+            multiplier2=(model.loc[position[0],'DataGH'])/model.loc[position[0],'ModelGH']
+            multiplier1=(model.loc[10,'DataGH'])/model.loc[10,'ModelGH']
+            for i in range(0,position[0]):
+                multiplier=(abs(model.loc[i,'DataGH']-model.loc[i,'ModelGH']*((multiplier2-multiplier1)/(position[0]-10)*(i-position[0])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))
+
+                if multiplier > DNIfix[i]:
+                    testdni=0
+                else:
+                    testdni=DNIfix[i]-multiplier
+                if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                    while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                        testdni=testdni-testdni*.005
+                    DNIfix[i]=testdni
+                else:
+                    DNIfix[i]=DNIfix[i]-multiplier
+        
+        fig, ax = plt.subplots()        
+        ax.plot(DNIfix)
+        plt.waitforbuttonpress()
+        plt.close()
+        return DNIfix
+    elif dips == 7:
+        print 'Select start and end point for GH dip'
+        while len(position) < (2):
+            fig.canvas.mpl_connect('button_press_event', on_press)
+            print len(position)
+            print case
+            sys.stdout.flush() 
+            plt.waitforbuttonpress()
+        plt.close()
+        x=0        
+        multiplier=1
+        multiplier2=(model.loc[position[x+1],'DataGH'])/(model.loc[(position[x+1],'DataDNI')]*math.cos(model.loc[position[x+1],'DataZEN']/180*math.pi)+model.loc[position[x+1],'ModelDif'])
+        for i in range(position[x],position[x+1]):
+            GHfix[i]=(((multiplier2-multiplier)/(position[x+1]-position[x])*(i-position[x])+multiplier)*(model.loc[i,'DataDNI']*math.cos(model.loc[i,'DataZEN']/180*math.pi)+model.loc[i,'ModelDif']))
+        
+        fig, ax = plt.subplots() 
+        ax.plot(GHfix)
+        plt.waitforbuttonpress()
+        plt.close()
+        return GHfix        
+            
     elif dips == 9:
         if case == 'DNI':
             x=0
@@ -330,6 +415,8 @@ def manualDatafix(datefix,wdata,case):
                 fig, ax = plt.subplots()
                 ax.plot(model.index,model.loc[:,'DataGH'],model.index,DNIfix[:])
                 plt.waitforbuttonpress()
+                plt.close()
+                return DNIfix
         
         
     
@@ -370,9 +457,10 @@ def writedata(data,year):
                 if os.path.isfile(filename):
                    print 'Appending existing dataframe: '+filename
                    #Grab data from file
-                   newdata=pd.read_csv(filename)
-                   newdata=pd.concat([newdata,data], axis=1)
-                   newdata.to_csv(filename, index=False)
+#                   newdata=pd.read_csv(filename)
+#                   newdata=pd.concat([newdata,data], axis=1)
+#                   newdata.to_csv(filename, index=False)
+                   data.to_csv(filename, mode='a', header=False, index=False)
                 else:
                    print'Creating new dataframe: '+filename
                    data.to_csv(filename, index=False)
@@ -1114,24 +1202,40 @@ def getFixdata(datefix,param,model,wdata):
     fixedGH=[]
     fixedDNI=[]
     response=0
-    
+    airmass=getAirmass(wdata)
     if param[2]==1:
         case='special'
-        while(response == 1):
-            sensor=prompt('Which Irradiance sensor is being worked on manually? 1=none, 2=GH, 3=DNI, & 4=both')
+        tempdata=pd.DataFrame(dict(Time=model.loc[:,'PST'],DataDNI=model.loc[:,'DataDNI'], DataGH=model.loc[:,'DataGH']))
+        fig, ax = plt.subplots()
+        tolerance = tempdata.index[len(tempdata)-1]+1 # points
+        ax.plot(tempdata.index,tempdata.loc[:,'DataDNI'],tempdata.index,tempdata.loc[:,'DataGH'], picker=tolerance)
+        x1,x2,y1,y2 = plt.axis()
+        plt.axis((x1,x2,0,1300))        
+        plt.waitforbuttonpress()
+        
+        response=0
+        while(response == 0):
+            sensor=input('Which Irradiance sensor is being worked on manually? 1=none, 2=GH, 3=DNI, & 4=both')
             if sensor == 1:                
                 return 0
             if sensor == 2:
-                fixedGH=manualDatafix(datefix,wdata,'GH')
+                fixedData.append(manualDatafix(datefix,wdata,'GH'))
+                fixedGH=fixedData[0]
                 graphdata(fixedGH,wdata,'GH')
+                plt.waitforbuttonpress()
             if sensor == 3:
-                fixedDNI=manualDatafix(datefix,wdata,'DNI')
+                fixedData.append(manualDatafix(datefix,wdata,'DNI'))
+                fixedDNI=fixedData[0]
                 graphdata(fixedDNI,wdata,'DNI')
+                plt.waitforbuttonpress()
             if sensor == 4:
-                fixedGH=manualDatafix(datefix,wdata,'GH')
-                fixedDNI=manualDatafix(datefix,wdata,'DNI')
-                graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
-            response=prompt('Are the Changes Acceptable? 1=yes , 0=no')
+                fixedData.append(manualDatafix(datefix,wdata,'GH'))
+                fixedData.append(manualDatafix(datefix,wdata,'DNI'))
+                fixedDNI=fixedData[1]
+                fixedGH=fixedData[0]
+                graphdata(fixedData,wdata,case)
+                plt.waitforbuttonpress()
+            response=input('Are the Changes Acceptable? 1=yes , 0=no')
     else:
         if param[0] == 0 and param[1] == 0:
             return 0
@@ -1151,11 +1255,27 @@ def getFixdata(datefix,param,model,wdata):
             fixedData.append(morningGHfix(datefix,param,wdata))
             fixedData.append(eveningDNIfix(datefix,param,wdata))
             fixedData.append(eveningGHfix(datefix,param,wdata))
+            x=0   
+            DNIfixedData=[0]*(airmass[1]-airmass[0])
+            GHfixedData=[0]*(airmass[1]-airmass[0])
+            if len(fixedData) != 0:
+                for i in range (airmass[0],airmass[1]):  
+                    if x<(int(1/3*(airmass[1]-airmass[0]))):
+                        DNIfixedData[x]=(fixedData[0][x])
+                        GHfixedData[x]=(fixedData[1][x])
+                    else:
+                        DNIfixedData[x]=(fixedData[2][x])
+                        GHfixedData[x]=(fixedData[3][x])
+                x=x+1
+            fixedData=[]
+            fixedData.append(GHfixedData)
+            fixedData.append(DNIfixedData)
             case='both'
     
-
+        
         graphdata(fixedData,wdata,case)
         e=0
+        print case
         while e==0:        
             response=input('Are the Changes Acceptable? 1=yes for both, 2=only DNI, 3=only GH, 4=manual fix')
             if response==1 or response==2 or response==3 or response==4:
@@ -1180,29 +1300,32 @@ def getFixdata(datefix,param,model,wdata):
         if response == 2:
             if case == 'evening':
                 fixedDNI=fixedData[0]
-                response=prompt('Does GH need fixing? 1=yes, 0=no')
+                print 'Evening Case'
+                response=input('Does GH need fixing? 1=yes, 0=no')
                 while(response == 1):
-                    fixedGH=manualDatafix(wdata,'GH')
-                    graphdata(fixedGH,wdata,case)
+                    fixedGH=manualDatafix(datefix,wdata,'GH')
+                    graphdata(fixedGH,wdata,'GH')
                     response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                     
             if case == 'morning':
                 fixedDNI=fixedData[0]
-                response=prompt('Does GH need fixing? 1=yes, 0=no')
+                print 'Morning Case'
+                response=input('Does GH need fixing? 1=yes, 0=no')
                 while(response == 1):
-                        fixedGH=manualDatafix(wdata,'GH')
-                        graphdata(fixedGH,wdata,case)
+                        fixedGH=manualDatafix(datefix,wdata,'GH')
+                        graphdata(fixedGH,wdata,'GH')
                         response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                         
             if case == 'both':
                fixedDNI=fixedData[0,2]
-               response=prompt('Does GH need fixing? 1=yes')
+               print 'Both Morning and Evening Case'
+               response=input('Does GH need fixing? 1=yes')
                while(response == 1):
-                       fixedGH[0]=manualDatafix(wdata,'GH')
-                       fixedGH[1]=manualDatafix(wdata,'GH')
-                       graphdata(fixedGH,wdata,case)
+                       fixedGH[0]=manualDatafix(datefix,wdata,'GH')
+                       fixedGH[1]=manualDatafix(datefix,wdata,'GH')
+                       graphdata(fixedGH,wdata,'GH')
                        response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                        
@@ -1210,43 +1333,49 @@ def getFixdata(datefix,param,model,wdata):
         if response == 3:
             if case == 'evening':
                 fixedGH=fixedData[0]
-                response=prompt('Does DNI need fixing? 1=yes, 0=no')
+                print 'Evening Case'
+                response=input('Does DNI need fixing? 1=yes, 0=no')
                 while(response == 1):
-                        fixedDNI=manualDatafix(wdata,'DNI')
-                        graphdata(fixedDNI,wdata,case)
+                        fixedDNI=manualDatafix(datefix,wdata,'DNI')
+                        graphdata(fixedDNI,wdata,'DNI')
                         response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                         
             if case == 'morning':
                 fixedGH=fixedData[0]
-                response=prompt('Does DNI need fixing? 1=yes, 0=no')
+                print 'Morning Case'
+                response=input('Does DNI need fixing? 1=yes, 0=no')
                 while(response == 1):
-                    fixedDNI=manualDatafix(wdata,'DNI')
-                    graphdata(fixedDNI,wdata,case)
+                    fixedDNI=manualDatafix(datefix,wdata,'DNI')
+                    graphdata(fixedDNI,wdata,'DNI')
                     response=prompt('Does DNI need fixing? 1=yes, 0=no')
 
                 
             if case == 'both':
                fixedGH=fixedData[0,2]
-               response=prompt('Does DNI need fixing? 1=yes , 0=no')
+               print 'Both Morning and Evening Case'
+               response=input('Does DNI need fixing? 1=yes , 0=no')
                while(response == 1):
-                   fixedDNI[0]=manualDatafix(wdata,'DNI')
-                   fixedDNI[1]=manualDatafix(wdata,'DNI')
-                   graphdata(fixedDNI,wdata,case)
+                   fixedDNI[0]=manualDatafix(datefix,wdata,'DNI')
+                   fixedDNI[1]=manualDatafix(datefix,wdata,'DNI')
+                   graphdata(fixedDNI,wdata,'DNI')
                    response=prompt('Does DNI need fixing? 1=yes , 0=no')
                    
                    
         if response == 4:
-            response = 1
-            while(response == 1):
+            response = 0
+            while(response == 0):
                 fixedGH=manualDatafix(datefix,wdata,'GH')
                 fixedDNI=manualDatafix(datefix,wdata,'DNI')
-                graphdata(fixedData[fixedGH,fixedDNI],wdata,case)
-                response=prompt('Are the Changes Acceptable? 1=yes, 0=no')
+                fixedData[0]=fixedDNI
+                fixedData[1]=fixedGH
+                graphdata(fixedData,wdata,case)
+                response=input('Are the Changes Acceptable? 1=yes, 0=no')
 
     temp=getTempdata(wdata)    
     newData=buildWdata(fixedDNI,fixedGH,temp)
-    #newData= calcdiff(newData)
+    newData= calcdiff(newData)
+    
     return newData
 
           
