@@ -150,12 +150,12 @@ def manualDatafix(datefix,wdata,case):
     tolerance = tempdata.index[len(tempdata)-1]+1 # points
     ax.plot(tempdata.index,tempdata.loc[:,'DataDNI'],tempdata.index,tempdata.loc[:,'DataGH'], picker=tolerance)
     plt.waitforbuttonpress()
-    dips=int(input('How many dips are there? Press 7 for GH special case, Press 8 for morning special DNI case, Press 9 for replacing whole day'))
+    dips=int(input('How many dips are there? Press 7 for GH special case, Press 8 for morning special or 6 for evening special DNI case, Press 9 for replacing whole day'))
     if case == 'DNI':    
         useGH=int(input('Should GH be used to modify the DNI? (press 1 for yes and 2 for no)'))
     
     sys.stdout.flush()    
-    if dips != 9 and dips != 0 and dips != 8 and dips != 7:  
+    if dips != 9 and dips != 0 and dips != 8 and dips != 7 and dips != 6:  
         print 'Select beginning and end points for each dip starting on leftmost dip'
         while len(position) < (dips*2):
 #            onpress(fig,ax)
@@ -337,6 +337,52 @@ def manualDatafix(datefix,wdata,case):
             multiplier1=(model.loc[10,'DataGH'])/model.loc[10,'ModelGH']
             for i in range(0,position[0]):
                 multiplier=(abs(model.loc[i,'DataGH']-model.loc[i,'ModelGH']*((multiplier2-multiplier1)/(position[0]-10)*(i-position[0])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))
+
+                if multiplier > DNIfix[i]:
+                    testdni=0
+                else:
+                    testdni=DNIfix[i]-multiplier
+                if (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                    while (model.loc[i,'DataGH']-testdni*math.cos(model.loc[i,'DataZEN']/180*math.pi))<5:
+                        testdni=testdni-testdni*.005
+                    DNIfix[i]=testdni
+                else:
+                    DNIfix[i]=DNIfix[i]-multiplier
+        
+        fig, ax = plt.subplots()        
+        ax.plot(DNIfix)
+        plt.waitforbuttonpress()
+        plt.close()
+        return DNIfix
+    elif dips ==6:
+        print 'Select start point for the evening dip'
+        while len(position) < (1):
+            fig.canvas.mpl_connect('button_press_event', on_press)
+            print len(position)
+            print case
+            sys.stdout.flush() 
+            plt.waitforbuttonpress()
+
+        plt.close()
+        multiplier=model.loc[position[0],'DataDNI']/model.loc[position[0],'ModelDNI']
+        print position
+        print multiplier
+        for time in range(position[0],(len(DNIfix)-1)):
+            DNIfix[time]=(multiplier*model.loc[time,'ModelDNI'])
+            if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                DNIfix[time]=model.loc[time,'DataDNI']
+        
+        if abs(DNIfix[len(DNIfix)-1]-model.loc[0,'DataDNI']) < 30:
+            multiplier2=model.loc[len(DNIfix)-1,'DataDNI']/DNIfix[len(DNIfix)-1]
+            for time in range(position[0],(len(DNIfix)-1)):
+                DNIfix[time]=(((multiplier2-1)/((len(DNIfix)-1)-position[0])*(time-position[0])+1)*DNIfix[time])
+                if (model.loc[time,'DataDNI'])>DNIfix[time]:
+                    DNIfix[time]=model.loc[time,'DataDNI']
+        if useGH==1:
+            multiplier2=(model.loc[position[0],'DataGH'])/model.loc[position[0],'ModelGH']
+            multiplier1=(model.loc[len(DNIfix)-10,'DataGH'])/model.loc[len(DNIfix)-10,'ModelGH']
+            for i in range(position[0],len(DNIfix)-1):
+                multiplier=(abs(model.loc[i,'DataGH']-model.loc[i,'ModelGH']*((multiplier1-multiplier2)/((len(DNIfix)-10)-position[0])*(i-position[0])+multiplier2))/math.cos(model.loc[i,'DataZEN']/180*math.pi))
 
                 if multiplier > DNIfix[i]:
                     testdni=0
