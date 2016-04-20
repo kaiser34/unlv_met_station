@@ -42,6 +42,10 @@ def getjobs_yr(year, mille,work):
     date_yr=str(year-mille)
     if float(date_yr)<10:
         date_yr=date_yr.zfill(2)
+    else:
+        date_yr=str('011')
+        
+    print date_yr
     job_yr=work[work['date'].str.contains(date_yr)]
     job_yr=job_yr.reset_index(drop=True)
     return job_yr
@@ -434,6 +438,7 @@ def manualDatafix(datefix,wdata,case):
                 ax.plot(model.index,model.loc[:,'DataGH'],model.index,model.loc[:,'ModelGH'])
                 fig.canvas.mpl_connect('button_press_event', on_press)
                 plt.waitforbuttonpress()
+                print position[0]
                 multiplier2=(model.loc[position[0],'DataGH'])/model.loc[position[0],'ModelGH']
                 x=0
                 for i in range(airmass_time[0],airmass_time[1]):
@@ -534,6 +539,8 @@ def getdnistart(datefix,airmass, wdata):
     nshade=[]
     datefix=parser.parse(datefix)
     dayofyear=float(datefix.strftime('%j'))
+    if dayofyear == 366.0:
+        dayofyear = 365
     shade=pd.read_csv("shade.csv")
     shade=shade.loc[shade['Date']==dayofyear]
     shade=shade.reset_index(drop=True)
@@ -558,6 +565,8 @@ def getdnishade(datefix,airmass, wdata):
     nshade=[]
     datefix=parser.parse(datefix)
     dayofyear=float(datefix.strftime('%j'))
+    if dayofyear == 366.0:
+        dayofyear = 365
     shade=pd.read_csv("shade.csv")
     shade=shade.loc[shade['Date']==dayofyear]
     shade=shade.reset_index(drop=True)
@@ -573,6 +582,8 @@ def getghstart(datefix,airmass, wdata):
     nshade=[]
     datefix=parser.parse(datefix)
     dayofyear=float(datefix.strftime('%j'))
+    if dayofyear == 366.0:
+        dayofyear = 365
     shade=pd.read_csv("shade.csv")
     shade=shade.loc[shade['Date']==dayofyear]
     shade=shade.reset_index(drop=True)
@@ -611,7 +622,7 @@ def getModel(datefix,param,wdata):
     dayofyear=float(datefix.strftime('%j'))
 #    print 'date type is: ' +str( type(dayofyear)) + 'which is: ' + str(dayofyear)
     #datefix=datefix.toordinal()
-    
+
     if calendar.isleap(year) == True:
         year_days=366
     else:
@@ -626,6 +637,7 @@ def getModel(datefix,param,wdata):
 #    print str(DNI_max)
         
     airmass_time=getAirmass(wdata)
+
 #    print airmass_time
     x=0
     if dayofyear >= 355 or dayofyear<= 80:        
@@ -683,6 +695,7 @@ def getModel(datefix,param,wdata):
 #    tempdata=tempdata.set_index('PST')
 #    plt.gca().set_color_cycle(['black', 'red','blue'])
 #    tempdata.plot()
+
     return tempdata
 #------------------------------------------------------------------------------
 
