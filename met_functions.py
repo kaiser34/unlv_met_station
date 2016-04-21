@@ -43,7 +43,7 @@ def getjobs_yr(year, mille,work):
     if float(date_yr)<10:
         date_yr=date_yr.zfill(2)
     else:
-        date_yr=str('011')
+       date_yr=str('015')
         
     print date_yr
     job_yr=work[work['date'].str.contains(date_yr)]
@@ -1372,9 +1372,9 @@ def getFixdata(datefix,param,model,wdata):
                 print 'Morning Case'
                 response=input('Does GH need fixing? 1=yes, 0=no')
                 while(response == 1):
-                        fixedGH=manualDatafix(datefix,wdata,'GH')
-                        graphdata(fixedGH,wdata,'GH')
-                        response=prompt('Does GH need fixing? 1=yes, 0=no')
+                    fixedGH=manualDatafix(datefix,wdata,'GH')
+                    graphdata(fixedGH,wdata,'GH')
+                    response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                         
             if case == 'both':
@@ -1382,26 +1382,26 @@ def getFixdata(datefix,param,model,wdata):
                print 'Both Morning and Evening Case'
                response=input('Does GH need fixing? 1=yes')
                while(response == 1):
-                       fixedGH[0]=manualDatafix(datefix,wdata,'GH')
-                       fixedGH[1]=manualDatafix(datefix,wdata,'GH')
-                       graphdata(fixedGH,wdata,'GH')
-                       response=prompt('Does GH need fixing? 1=yes, 0=no')
+                   fixedGH[0]=manualDatafix(datefix,wdata,'GH')
+                   fixedGH[1]=manualDatafix(datefix,wdata,'GH')
+                   graphdata(fixedGH,wdata,'GH')
+                   response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                        
                        
         if response == 3:
             if case == 'evening':
-                fixedGH=fixedData[0]
+                fixedGH=fixedData[1]
                 print 'Evening Case'
                 response=input('Does DNI need fixing? 1=yes, 0=no')
                 while(response == 1):
-                        fixedDNI=manualDatafix(datefix,wdata,'DNI')
-                        graphdata(fixedDNI,wdata,'DNI')
-                        response=prompt('Does GH need fixing? 1=yes, 0=no')
+                    fixedDNI=manualDatafix(datefix,wdata,'DNI')
+                    graphdata(fixedDNI,wdata,'DNI')
+                    response=prompt('Does GH need fixing? 1=yes, 0=no')
 
                         
             if case == 'morning':
-                fixedGH=fixedData[0]
+                fixedGH=fixedData[1]
                 print 'Morning Case'
                 response=input('Does DNI need fixing? 1=yes, 0=no')
                 while(response == 1):
@@ -1411,7 +1411,7 @@ def getFixdata(datefix,param,model,wdata):
 
                 
             if case == 'both':
-               fixedGH=fixedData[0,2]
+               fixedGH=fixedData[1,3]
                print 'Both Morning and Evening Case'
                response=input('Does DNI need fixing? 1=yes , 0=no')
                while(response == 1):

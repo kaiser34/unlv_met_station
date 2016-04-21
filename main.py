@@ -23,7 +23,7 @@ twork=twork.reset_index(drop=True) #Resets the index [starts from index=0]
 #work=twork.loc[twork['special']==0] #Dataframe containig days that do not include special circumstances
 #work=work.reset_index(drop=True)  #Resets the index [starts from index=0]
 work=twork
-job_begin=work.loc[0,'date']#First date listed as affected
+job_begin=work.loc[1391,'date']#First date listed as affected
 job_end= work.loc[len(work.index)-1,'date'] #Last date listed as affected
 year_begin=parser.parse(job_begin).year #First year listed as affected
 year_end=parser.parse(job_end).year #Las year listed as affected  
@@ -34,14 +34,14 @@ param.append(0)
 param.append(0)
 param.append(0)
 #Begin data correction
-for year in range(year_begin,year_end): #Loop for the number of years
+for year in range(year_begin,year_end+1): #Loop for the number of years
     
     print year
     wdata=getdata(DATAFILE_DIR,year) #Retrieves weather data for the specified year
     jobs_yr=getjobs_yr(year,mille,work) #Retrieves a list affected dates in the specified year
     job_days=len(jobs_yr.index)  #Sums up the number of affected dates for the year
     
-    for days in range(109,job_days):  #loop for the number of affected days
+    for days in range(72,job_days):  #loop for the number of affected days
         
         job_date=jobs_yr.loc[days,'date'] #Retrieves individual affected dates, based on the value of the parent loops iteration variable
         print job_date        
@@ -62,6 +62,6 @@ for year in range(year_begin,year_end): #Loop for the number of years
         writedata(fixedData,year)
         plt.close()
 #        break
-    break
+#    break
 print 'The program has completed!'    
 #End data correction
