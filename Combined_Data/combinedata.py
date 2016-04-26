@@ -17,8 +17,10 @@ def getTempdata(wdata):
     return wdataTemp   
 
 x=0
-start_yr=2013
-end_yr=2014
+
+start_yr=2006
+end_yr=2007
+
 
 for year in range (start_yr,end_yr):
     oldfile=pd.read_csv("../data/"+str(year)+".csv")
@@ -39,5 +41,5 @@ for year in range (start_yr,end_yr):
            newfile=tempdata
     
     newfile.to_csv(outputfile, index=False)
-    
+
     
